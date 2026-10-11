@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { ChevronDown, CircleUser, Menu, Settings, Tag } from "../icons";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
 
@@ -19,6 +20,8 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  useHotkey("nav.menu", () => setIsOpen((open) => !open));
+  const menuCombo = useHotkeyLabel("nav.menu");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,7 +67,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Menu"
-        title="Menu"
+        title={menuCombo ? `Menu (${menuCombo})` : "Menu"}
         aria-expanded={isOpen}
         className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg border border-gray-700 shadow-lg transition-all flex items-center gap-2"
       >

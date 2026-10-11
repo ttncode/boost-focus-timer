@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { FocusTimer } from "./focus/FocusTimer";
+import { HotkeysProvider, useHotkey, useHotkeyMap } from "./hotkeys/HotkeysProvider";
 import { databaseService } from "./lib/database-service";
 import { getLocalUserId } from "./lib/local-db";
 import { getDisplayName, saveDisplayName } from "./lib/profile";
@@ -25,6 +26,20 @@ function formatTodayMinutes(minutes: number): string {
 }
 
 export function BoostApp() {
+  return (
+    <HotkeysProvider>
+      <AppShell />
+    </HotkeysProvider>
+  );
+}
+
+const NAV_TABS: readonly Tab[] = ["timer", "todos", "habits", "goals", "boost", "history", "aboutme", "tags"];
+
+function useNavigationHotkeys(navigate: (tab: Tab) => void) {
+  useHotkeyMap(Object.fromEntries(NAV_TABS.map((tab) => [`nav.${tab}`, () => navigate(tab)])));
+}
+
+function AppShell() {
   const [userId] = useState(getLocalUserId);
   const [tab, setTab] = useState<Tab>("timer");
   const [previousTab, setPreviousTab] = useState<Tab>("timer");
@@ -53,6 +68,8 @@ export function BoostApp() {
 
   const goBack = () => setTab(previousTab);
 
+  useNavigationHotkeys(navigateFromCurrent);
+  useHotkey("app.displayName", () => setIsEditingName(true));
 
   const saveName = () => {
     const trimmed = newName.trim();
