@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { BarChart3, ChevronDown, Pencil, User } from "../icons";
 
 const SAFE_TOP = "max(env(safe-area-inset-top), 1rem)";
@@ -15,6 +16,7 @@ interface TopBarProps {
 export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHistory }: TopBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const historyCombo = useHotkeyLabel("nav.history");
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -58,7 +60,7 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
       <div className="fixed z-40" style={{ top: SAFE_TOP, right: "1rem" }}>
         <button
           onClick={onOpenHistory}
-          title="Focus summary"
+          title={historyCombo ? `Focus summary (${historyCombo})` : "Focus summary"}
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <span className="font-medium">{displayTime} today</span>

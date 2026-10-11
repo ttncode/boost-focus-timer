@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 import { CheckSquare, Coffee, LineChart, List, Rocket } from "../icons";
+import { useHotkeys } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 
 const ITEMS: readonly { tab: Tab; label: string; Icon: ComponentType<{ className?: string }>; activeColor: string }[] = [
@@ -13,6 +14,7 @@ const ITEMS: readonly { tab: Tab; label: string; Icon: ComponentType<{ className
 ];
 
 export function BottomNav({ activeTab, onTabChange }: { activeTab: Tab; onTabChange(tab: Tab): void }) {
+  const { bindings } = useHotkeys();
   return (
     <div
       className="fixed left-1/2 -translate-x-1/2 z-40 flex gap-1 p-1.5 w-[calc(100%-1.5rem)] max-w-md bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl"
@@ -26,6 +28,7 @@ export function BottomNav({ activeTab, onTabChange }: { activeTab: Tab; onTabCha
           <button
             key={tab}
             onClick={() => onTabChange(tab)}
+            title={bindings[`nav.${tab}`] ? `${label} (${bindings[`nav.${tab}`]})` : undefined}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg transition-all ${
               isActive ? `bg-gray-800 ${activeColor} shadow-sm${duration}` : `text-gray-400 hover:text-gray-200${duration}`
             }`}
