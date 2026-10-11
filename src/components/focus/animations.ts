@@ -1,5 +1,8 @@
 export type AnimationType = "coffee-cup" | "battery" | "rocket";
 
+/** Rows of charge the battery drains through; the extra frame is the empty battery. */
+export const BATTERY_LEVELS = 19;
+
 export interface AnimationMeta {
   readonly type: AnimationType;
   readonly title: string;
@@ -7,8 +10,8 @@ export interface AnimationMeta {
 }
 
 export const ANIMATIONS: readonly AnimationMeta[] = [
-  { type: "coffee-cup", title: "Coffee Cup", frames: 17 },
-  { type: "battery", title: "Battery", frames: 6 },
+  { type: "coffee-cup", title: "Coffee Cup", frames: 26 },
+  { type: "battery", title: "Battery", frames: BATTERY_LEVELS + 1 },
   { type: "rocket", title: "Rocket", frames: 30 },
 ];
 

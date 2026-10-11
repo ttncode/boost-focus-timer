@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { metaOf, type AnimationType } from "./animations";
+import { useEffect, type ReactNode } from "react";
+import { BATTERY_LEVELS, metaOf, type AnimationType } from "./animations";
 
 type Pixel = readonly [x: number, y: number, width: number, height: number, color: string];
 
@@ -11,64 +11,30 @@ const FLICKER_CSS = `
 @media (prefers-reduced-motion: reduce) { .${FLICKER_CLASS} { animation: none; } }
 `;
 
-const GLASS = "#cbd5e1";
-const COFFEE = "#6b3e26";
-const CREMA = "#c08552";
-const STEAM = "#64748b";
-const CUP_ROWS = 16;
-
-function coffeeCup(step: number): Pixel[] {
-  const level = Math.min(CUP_ROWS, step);
-  const coffee: Pixel[] =
-    level > 0
-      ? [
-          [9, 27 - level, 13, level, COFFEE],
-          [9, 27 - level, 13, 1, CREMA],
-        ]
-      : [];
-  const steam: Pixel[] =
-    level >= CUP_ROWS - 4
-      ? [
-          [12, 7, 1, 1, STEAM],
-          [13, 6, 1, 1, STEAM],
-          [12, 5, 1, 1, STEAM],
-          [17, 8, 1, 1, STEAM],
-          [18, 7, 1, 1, STEAM],
-          [17, 6, 1, 1, STEAM],
-        ]
-      : [];
-  return [
-    ...steam,
-    ...coffee,
-    [8, 10, 1, 17, GLASS],
-    [22, 10, 1, 17, GLASS],
-    [8, 27, 15, 1, GLASS],
-    [10, 12, 1, 5, "#f8fafc"],
-    [23, 13, 3, 1, GLASS],
-    [25, 14, 1, 7, GLASS],
-    [23, 21, 3, 1, GLASS],
-    [5, 28, 22, 1, "#e2e8f0"],
-    [7, 29, 18, 1, "#94a3b8"],
-  ];
-}
-
-const CELLS = 5;
 const SHELL = "#e5e7eb";
-const EMPTY_CELL = "#1f2937";
+const CHARGE_LEFT = 12;
+const CHARGE_WIDTH = 8;
+const CHARGE_BOTTOM = 26;
+const SEGMENT_ROWS = 4;
+const SEGMENT_GAP = "#111827";
 
-const chargeColor = (charged: number) => (charged <= 1 ? "#ef4444" : charged === 2 ? "#f59e0b" : "#22c55e");
+const chargeColor = (fraction: number) => (fraction > 0.6 ? "#22c55e" : fraction > 0.3 ? "#f59e0b" : "#ef4444");
 
+/** Drains one row per frame: frame 1 is fully charged, the last frame is empty. */
 function battery(step: number): Pixel[] {
-  const charged = Math.min(CELLS, step);
-  const cells = Array.from({ length: CELLS }, (_, index): Pixel => [
-    12,
-    24 - index * 4,
-    8,
-    3,
-    index < charged ? chargeColor(charged) : EMPTY_CELL,
-  ]);
+  const level = Math.max(0, BATTERY_LEVELS - step);
+  const color = chargeColor(level / BATTERY_LEVELS);
+  const charge: Pixel[] = level > 0 ? [[CHARGE_LEFT, CHARGE_BOTTOM - level + 1, CHARGE_WIDTH, level, color]] : [];
+  // Thin gaps split the charge into the familiar battery segments.
+  const gaps = Array.from({ length: Math.floor(BATTERY_LEVELS / SEGMENT_ROWS) }, (_, index): Pixel => [
+    CHARGE_LEFT,
+    CHARGE_BOTTOM - (index + 1) * SEGMENT_ROWS + 1,
+    CHARGE_WIDTH,
+    1,
+    SEGMENT_GAP,
+  ]).filter(([, y]) => y > CHARGE_BOTTOM - level);
   const bolt: Pixel[] =
-    charged === CELLS
+    level === BATTERY_LEVELS
       ? [
           [25, 12, 2, 1, "#facc15"],
           [24, 13, 2, 1, "#facc15"],
@@ -83,7 +49,8 @@ function battery(step: number): Pixel[] {
     [10, 28, 12, 1, SHELL],
     [10, 6, 1, 23, SHELL],
     [21, 6, 1, 23, SHELL],
-    ...cells,
+    ...charge,
+    ...gaps,
     ...bolt,
   ];
 }
@@ -135,8 +102,7 @@ function rocket(step: number, frames: number): { pixels: Pixel[]; flame: Pixel[]
   };
 }
 
-function scene(type: AnimationType, step: number, frames: number): { pixels: Pixel[]; flame: Pixel[] } {
-  if (type === "coffee-cup") return { pixels: coffeeCup(step), flame: [] };
+function scene(type: Exclude<AnimationType, "coffee-cup">, step: number, frames: number): { pixels: Pixel[]; flame: Pixel[] } {
   if (type === "battery") return { pixels: battery(step), flame: [] };
   return rocket(step, frames);
 }
@@ -146,10 +112,29 @@ const toRects = (pixels: readonly Pixel[]): ReactNode[] =>
     <rect key={index} x={x} y={y} width={width} height={height} fill={color} />
   ));
 
+const coffeeFrameUrl = (frame: number) => `/animations/coffee-cup/${String(frame).padStart(2, "0")}.png`;
+
+let coffeeFramesRequested = false;
+
+/** Fetches every frame once up front so the first pass through the animation never blinks. */
+function preloadCoffeeFrames(frames: number): void {
+  if (coffeeFramesRequested) return;
+  coffeeFramesRequested = true;
+  for (let frame = 1; frame <= frames; frame++) new Image().src = coffeeFrameUrl(frame);
+}
+
 /** Draws `frame` (1-based) of a pixel-art animation on a 32×32 grid. */
 export function PixelArt({ type, frame, className, label }: { type: AnimationType; frame: number; className: string; label: string }) {
   const { frames } = metaOf(type);
-  const { pixels, flame: flamePixels } = scene(type, Math.min(frames, Math.max(1, frame)) - 1, frames);
+  const clamped = Math.min(frames, Math.max(1, frame));
+  useEffect(() => {
+    if (type === "coffee-cup") preloadCoffeeFrames(frames);
+  }, [type, frames]);
+  if (type === "coffee-cup") {
+    // eslint-disable-next-line @next/next/no-img-element -- frame-by-frame animation; next/image would re-optimize every frame
+    return <img src={coffeeFrameUrl(clamped)} alt={label} className={`${className} object-contain`} draggable={false} />;
+  }
+  const { pixels, flame: flamePixels } = scene(type, clamped - 1, frames);
   return (
     <svg viewBox={`0 0 ${GRID} ${GRID}`} shapeRendering="crispEdges" className={className} role="img" aria-label={label}>
       {flamePixels.length > 0 ? (
