@@ -8,6 +8,7 @@ import { databaseService } from "./lib/database-service";
 import { getLocalUserId } from "./lib/local-db";
 import { getDisplayName, saveDisplayName } from "./lib/profile";
 import { BottomNav } from "./shell/BottomNav";
+import { NotificationPrompt } from "./shell/NotificationPrompt";
 import { StartMenu } from "./shell/StartMenu";
 import { TopBar } from "./shell/TopBar";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, SHORT_VIEWPORT_QUERY, useMediaQuery } from "./shell/use-media-query";
@@ -209,6 +210,7 @@ function AppShell() {
         <BottomNav activeTab={tab} onTabChange={setTab} />
       </div>
       <StartMenu onNavigate={navigateFromCurrent} />
+      <NotificationPrompt />
     </>
   );
 }
