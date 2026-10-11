@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { notificationStatus, notify, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
+import { disableNotifications, enableNotifications, notificationStatus, type NotificationStatus } from "../focus/notifications";
 import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
@@ -17,27 +17,38 @@ const SETTINGS: readonly { label: string; Icon: ComponentType<{ className?: stri
 ];
 
 const NOTIFICATION_LABELS: Readonly<Record<Exclude<NotificationStatus, "unsupported">, string>> = {
-  default: "Turn on notifications",
-  granted: "Notifications on · test",
-  denied: "Notifications blocked",
+  on: "Notifications: On",
+  off: "Notifications: Off",
+  undecided: "Notifications: Off",
+  blocked: "Notifications: Blocked",
+};
+
+const NOTIFICATION_HINTS: Readonly<Record<Exclude<NotificationStatus, "unsupported">, string>> = {
+  on: "Click to turn notifications off",
+  off: "Click to turn notifications on",
+  undecided: "Click to turn notifications on",
+  blocked: "Click to see how to allow notifications",
 };
 
 const BLOCKED_HELP =
   "Notifications are blocked for this site. Allow them in your browser's site settings (the icon left of the address bar), then reload.";
 
-/** One menu row that shows the current permission and does the useful next step for it. */
+/** A switch row: shows the current state and flips it; a blocked browser gets instructions instead. */
 function NotificationsItem() {
   const [status, setStatus] = useState<NotificationStatus>(notificationStatus);
   if (status === "unsupported") return null;
 
-  const act = async () => {
-    if (status === "default") setStatus((await requestNotificationPermission()) ?? notificationStatus());
-    else if (status === "granted") notify("Notifications are on", "You'll get one when a focus session or break ends.");
-    else alert(BLOCKED_HELP);
+  const toggle = async () => {
+    if (status === "blocked") return alert(BLOCKED_HELP);
+    if (status === "on") {
+      disableNotifications();
+      return setStatus("off");
+    }
+    setStatus(await enableNotifications());
   };
 
   return (
-    <button onClick={() => void act()} className={SUB_ITEM}>
+    <button onClick={() => void toggle()} title={NOTIFICATION_HINTS[status]} className={SUB_ITEM}>
       <Bell className="w-4 h-4" />
       <span>{NOTIFICATION_LABELS[status]}</span>
     </button>

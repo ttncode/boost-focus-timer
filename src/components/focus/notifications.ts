@@ -1,39 +1,80 @@
-const ICON = "/icons/icon-192.png";
-// Reusing one tag replaces a stale notification instead of stacking them.
-const TAG = "boost-focus-timer";
-const OFFER_DISMISSED_KEY = "bft:notificationOfferDismissed";
+/*
+ * Notifications have an app-level on/off choice on top of the browser permission:
+ * inside the extension the permission is granted by the manifest, so without our own
+ * choice the user would never be asked.
+ */
 
-const isSupported = (): boolean => typeof window !== "undefined" && "Notification" in window;
+const ICON_PATH = "icons/icon-128.png";
+// Reusing one id/tag replaces a stale notification instead of stacking them.
+const NOTIFICATION_ID = "boost-focus-timer";
+const PREFERENCE_KEY = "bft:notifications";
+const LEGACY_DISMISSED_KEY = "bft:notificationOfferDismissed";
+export const NOTIFICATIONS_ENABLED_EVENT = "bft:notifications-enabled";
 
-/** True until the user has decided: the browser hasn't asked yet and they haven't said "Not now". */
-export function shouldOfferNotifications(): boolean {
-  return isSupported() && Notification.permission === "default" && !localStorage.getItem(OFFER_DISMISSED_KEY);
+/** The slice of the extension `chrome` API used here; the web build never has it. */
+interface ExtensionApi {
+  runtime: { id?: string; getURL(path: string): string };
+  notifications: {
+    create(id: string, options: { type: "basic"; iconUrl: string; title: string; message: string; silent?: boolean }): Promise<string>;
+    onClicked: { addListener(listener: (id: string) => void): void };
+  };
+  tabs: {
+    getCurrent(): Promise<{ id?: number; windowId?: number } | undefined>;
+    update(tabId: number, properties: { active: boolean }): Promise<unknown>;
+  };
+  windows: { update(windowId: number, properties: { focused: boolean }): Promise<unknown> };
 }
 
-export function dismissNotificationOffer(): void {
-  localStorage.setItem(OFFER_DISMISSED_KEY, "1");
+function extensionApi(): ExtensionApi | null {
+  const candidate = (globalThis as { chrome?: Partial<ExtensionApi> }).chrome;
+  return candidate?.runtime?.id && candidate.notifications ? (candidate as ExtensionApi) : null;
 }
 
-/** Must run from a click or key press; browsers ignore permission requests made outside a user gesture. */
-export async function requestNotificationPermission(): Promise<NotificationPermission | null> {
-  if (!isSupported()) return null;
+const hasWebNotifications = (): boolean => typeof window !== "undefined" && "Notification" in window;
+
+export type NotificationStatus = "unsupported" | "undecided" | "on" | "off" | "blocked";
+
+function readPreference(): "on" | "off" | null {
+  const stored = localStorage.getItem(PREFERENCE_KEY);
+  if (stored === "on" || stored === "off") return stored;
+  return localStorage.getItem(LEGACY_DISMISSED_KEY) ? "off" : null;
+}
+
+const writePreference = (value: "on" | "off") => localStorage.setItem(PREFERENCE_KEY, value);
+
+export function notificationStatus(): NotificationStatus {
+  const preference = readPreference();
+  if (extensionApi()) return preference ?? "undecided";
+  if (!hasWebNotifications()) return "unsupported";
+  if (Notification.permission === "denied") return "blocked";
+  if (Notification.permission === "default") return preference === "off" ? "off" : "undecided";
+  return preference ?? "undecided";
+}
+
+let clickHandlerInstalled = false;
+
+/** Clicking an extension notification brings the timer tab and its window to the front. */
+function installExtensionClickHandler(api: ExtensionApi): void {
+  if (clickHandlerInstalled) return;
+  clickHandlerInstalled = true;
+  api.notifications.onClicked.addListener(async () => {
+    const tab = await api.tabs.getCurrent();
+    if (tab?.id !== undefined) await api.tabs.update(tab.id, { active: true });
+    if (tab?.windowId !== undefined) await api.windows.update(tab.windowId, { focused: true });
+  });
+}
+
+function show(title: string, body: string): void {
+  const api = extensionApi();
   try {
-    return await Notification.requestPermission();
-  } catch (error) {
-    console.error("Notification permission request failed:", error);
-    return null;
-  }
-}
-
-export type NotificationStatus = "unsupported" | NotificationPermission;
-
-export const notificationStatus = (): NotificationStatus => (isSupported() ? Notification.permission : "unsupported");
-
-/** Shows a system notification when the user has allowed them; silent because the end bell already plays. */
-export function notify(title: string, body: string): void {
-  if (!isSupported() || Notification.permission !== "granted") return;
-  try {
-    const notification = new Notification(title, { body, icon: ICON, tag: TAG, silent: true });
+    if (api) {
+      installExtensionClickHandler(api);
+      const options = { type: "basic" as const, iconUrl: api.runtime.getURL(ICON_PATH), title, message: body, silent: true };
+      api.notifications.create(NOTIFICATION_ID, options).catch((error: unknown) => console.error("Could not show notification:", error));
+      return;
+    }
+    // Silent because the end bell already plays; the notification is the visual cue.
+    const notification = new Notification(title, { body, icon: `/${ICON_PATH}`, tag: NOTIFICATION_ID, silent: true });
     notification.onclick = () => {
       window.focus();
       notification.close();
@@ -41,4 +82,34 @@ export function notify(title: string, body: string): void {
   } catch (error) {
     console.error("Could not show notification:", error);
   }
+}
+
+/** Shows a notification when the user turned them on. */
+export function notify(title: string, body: string): void {
+  if (notificationStatus() === "on") show(title, body);
+}
+
+/**
+ * Turns notifications on and sends a sample so the user sees the result straight away.
+ * Must run from a click: browsers ignore permission requests made outside a user gesture.
+ */
+export async function enableNotifications(): Promise<NotificationStatus> {
+  if (!extensionApi() && hasWebNotifications() && Notification.permission === "default") {
+    const permission = await Notification.requestPermission().catch((error: unknown) => {
+      console.error("Notification permission request failed:", error);
+      return "default" as const;
+    });
+    // Closing the browser dialog without a choice leaves the user undecided.
+    if (permission !== "granted") return notificationStatus();
+  }
+  const status = notificationStatus();
+  if (status === "blocked" || status === "unsupported") return status;
+  writePreference("on");
+  show("Notifications are on", "You'll get one when a focus session or break ends.");
+  window.dispatchEvent(new Event(NOTIFICATIONS_ENABLED_EVENT));
+  return "on";
+}
+
+export function disableNotifications(): void {
+  writePreference("off");
 }
