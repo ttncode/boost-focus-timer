@@ -124,4 +124,4 @@ Built with Next.js 16, React 19, TypeScript, Tailwind CSS 4, dnd-kit and Rechart
 
 ## Status
 
-Personal project, used daily by its author. Not affiliated with any company or product of a similar name. There is no open-source license yet, so all rights are reserved; ask before reusing the code.
+Personal project, used daily by its author. The coffee-cup animation frames in `public/animations/coffee-cup/` are third-party artwork kept for private, personal use only; do not redistribute them. Not affiliated with any company or product of a similar name. There is no open-source license yet, so all rights are reserved; ask before reusing the code.
