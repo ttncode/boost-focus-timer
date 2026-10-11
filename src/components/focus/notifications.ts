@@ -1,7 +1,6 @@
 /*
- * Notifications have an app-level on/off choice on top of the browser permission:
- * inside the extension the permission is granted by the manifest, so without our own
- * choice the user would never be asked.
+ * The browser permission is the only switch: the app asks Chrome directly on first open.
+ * Inside the extension the manifest grants it, so there is nothing to ask.
  */
 
 const ICON_PATH = "icons/icon-128.png";
@@ -10,9 +9,6 @@ const ICON_PATH = "icons/icon-128.png";
  * would make the browser swap the text into the old notification silently, without a pop-up.
  */
 const NOTIFICATION_ID_PREFIX = "boost-focus-timer";
-const PREFERENCE_KEY = "bft:notifications";
-const LEGACY_DISMISSED_KEY = "bft:notificationOfferDismissed";
-export const NOTIFICATIONS_ENABLED_EVENT = "bft:notifications-enabled";
 
 /** The slice of the extension `chrome` API used here; the web build never has it. */
 interface ExtensionApi {
@@ -36,23 +32,25 @@ function extensionApi(): ExtensionApi | null {
 
 const hasWebNotifications = (): boolean => typeof window !== "undefined" && "Notification" in window;
 
-export type NotificationStatus = "unsupported" | "undecided" | "on" | "off" | "blocked";
-
-function readPreference(): "on" | "off" | null {
-  const stored = localStorage.getItem(PREFERENCE_KEY);
-  if (stored === "on" || stored === "off") return stored;
-  return localStorage.getItem(LEGACY_DISMISSED_KEY) ? "off" : null;
-}
-
-const writePreference = (value: "on" | "off") => localStorage.setItem(PREFERENCE_KEY, value);
+export type NotificationStatus = "unsupported" | NotificationPermission;
 
 export function notificationStatus(): NotificationStatus {
-  const preference = readPreference();
-  if (extensionApi()) return preference ?? "undecided";
-  if (!hasWebNotifications()) return "unsupported";
-  if (Notification.permission === "denied") return "blocked";
-  if (Notification.permission === "default") return preference === "off" ? "off" : "undecided";
-  return preference ?? "undecided";
+  if (extensionApi()) return "granted";
+  return hasWebNotifications() ? Notification.permission : "unsupported";
+}
+
+/**
+ * Shows Chrome's own Allow/Block prompt. Called on first open without a click, Chrome may
+ * show its quieter prompt (a bell in the address bar) instead; the menu entry asks again from a click.
+ */
+export async function requestNotificationPermission(): Promise<NotificationStatus> {
+  if (notificationStatus() !== "default") return notificationStatus();
+  try {
+    return await Notification.requestPermission();
+  } catch (error) {
+    console.error("Notification permission request failed:", error);
+    return notificationStatus();
+  }
 }
 
 let clickHandlerInstalled = false;
@@ -95,32 +93,7 @@ function show(title: string, body: string): void {
   }
 }
 
-/** Shows a notification when the user turned them on. */
+/** Shows a notification when the browser allows it. */
 export function notify(title: string, body: string): void {
-  if (notificationStatus() === "on") show(title, body);
-}
-
-/**
- * Turns notifications on and sends a sample so the user sees the result straight away.
- * Must run from a click: browsers ignore permission requests made outside a user gesture.
- */
-export async function enableNotifications(): Promise<NotificationStatus> {
-  if (!extensionApi() && hasWebNotifications() && Notification.permission === "default") {
-    const permission = await Notification.requestPermission().catch((error: unknown) => {
-      console.error("Notification permission request failed:", error);
-      return "default" as const;
-    });
-    // Closing the browser dialog without a choice leaves the user undecided.
-    if (permission !== "granted") return notificationStatus();
-  }
-  const status = notificationStatus();
-  if (status === "blocked" || status === "unsupported") return status;
-  writePreference("on");
-  show("Notifications are on", "You'll get one when a focus session or break ends.");
-  window.dispatchEvent(new Event(NOTIFICATIONS_ENABLED_EVENT));
-  return "on";
-}
-
-export function disableNotifications(): void {
-  writePreference("off");
+  if (notificationStatus() === "granted") show(title, body);
 }
