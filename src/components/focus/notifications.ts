@@ -5,8 +5,11 @@
  */
 
 const ICON_PATH = "icons/icon-128.png";
-// Reusing one id/tag replaces a stale notification instead of stacking them.
-const NOTIFICATION_ID = "boost-focus-timer";
+/*
+ * Each notification gets a fresh id and the previous one is closed first. Reusing a tag/id
+ * would make the browser swap the text into the old notification silently, without a pop-up.
+ */
+const NOTIFICATION_ID_PREFIX = "boost-focus-timer";
 const PREFERENCE_KEY = "bft:notifications";
 const LEGACY_DISMISSED_KEY = "bft:notificationOfferDismissed";
 export const NOTIFICATIONS_ENABLED_EVENT = "bft:notifications-enabled";
@@ -16,6 +19,7 @@ interface ExtensionApi {
   runtime: { id?: string; getURL(path: string): string };
   notifications: {
     create(id: string, options: { type: "basic"; iconUrl: string; title: string; message: string; silent?: boolean }): Promise<string>;
+    clear(id: string): Promise<boolean>;
     onClicked: { addListener(listener: (id: string) => void): void };
   };
   tabs: {
@@ -52,6 +56,8 @@ export function notificationStatus(): NotificationStatus {
 }
 
 let clickHandlerInstalled = false;
+let previousExtensionId: string | null = null;
+let previousWebNotification: Notification | null = null;
 
 /** Clicking an extension notification brings the timer tab and its window to the front. */
 function installExtensionClickHandler(api: ExtensionApi): void {
@@ -69,12 +75,17 @@ function show(title: string, body: string): void {
   try {
     if (api) {
       installExtensionClickHandler(api);
+      if (previousExtensionId) void api.notifications.clear(previousExtensionId);
+      const id = `${NOTIFICATION_ID_PREFIX}-${Date.now()}`;
+      previousExtensionId = id;
       const options = { type: "basic" as const, iconUrl: api.runtime.getURL(ICON_PATH), title, message: body, silent: true };
-      api.notifications.create(NOTIFICATION_ID, options).catch((error: unknown) => console.error("Could not show notification:", error));
+      api.notifications.create(id, options).catch((error: unknown) => console.error("Could not show notification:", error));
       return;
     }
+    previousWebNotification?.close();
     // Silent because the end bell already plays; the notification is the visual cue.
-    const notification = new Notification(title, { body, icon: `/${ICON_PATH}`, tag: NOTIFICATION_ID, silent: true });
+    const notification = new Notification(title, { body, icon: `/${ICON_PATH}`, silent: true });
+    previousWebNotification = notification;
     notification.onclick = () => {
       window.focus();
       notification.close();
