@@ -28,6 +28,7 @@ import {
   type HabitRow,
   type ViewMode,
 } from "./habits/habit-model";
+import { useDialog } from "../dialogs/DialogProvider";
 
 type NoteMap = Record<string, HabitNote>;
 
@@ -186,6 +187,7 @@ function CreateHabitForm({ onCreate, onClose }: { onCreate(edit: HabitEdit): Pro
 }
 
 export function HabitsPage({ userId }: { userId: string }) {
+  const dialog = useDialog();
   const { habits, setHabits, completions, setCompletions, notes, setNotes, loading, loadCompletions, persistOrder } = useHabitData(userId);
   const [showAddForm, setShowAddForm] = useState(false);
   useHotkey("list.new", () => setShowAddForm(true));
@@ -232,7 +234,7 @@ export function HabitsPage({ userId }: { userId: string }) {
 
   const deleteHabit = async (habit: Habit) => {
     const confirmText = "Are you sure you want to permanently delete this habit? This will delete all tracking history.";
-    if (!habit.is_suggested && !window.confirm(confirmText)) return;
+    if (!habit.is_suggested && !(await dialog.confirm(confirmText, { confirmLabel: "Delete", destructive: true }))) return;
     const backup = { habits, completions, notes };
     const relatedLogIds = completions.filter((c) => c.habit_id === habit.id).map((c) => c.id);
     const relatedNoteIds = Object.values(notes).filter((n) => n.habit_id === habit.id).map((n) => n.id);
@@ -309,7 +311,7 @@ export function HabitsPage({ userId }: { userId: string }) {
     if (!noteTarget) return;
     const key = noteKey(noteTarget.habitId, noteTarget.dateString);
     const existing = notes[key];
-    if (!existing || !window.confirm("Delete this note?")) return;
+    if (!existing || !(await dialog.confirm("Delete this note?", { confirmLabel: "Delete", destructive: true }))) return;
     const { error } = await table().delete().eq("id", existing.id);
     if (error) {
       console.error("Failed to delete note:", error);

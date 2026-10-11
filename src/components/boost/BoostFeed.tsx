@@ -6,6 +6,7 @@ import { useHotkey } from "../hotkeys/HotkeysProvider";
 import { getDisplayName } from "../lib/profile";
 import { getLocalUserId, localDb, type Row } from "../lib/local-db";
 import { PostContent } from "./PostContent";
+import { useDialog } from "../dialogs/DialogProvider";
 
 type BoostPost = Row & {
   user_id: string;
@@ -86,6 +87,7 @@ function UploadedPhoto({ src }: { src: string }) {
 }
 
 export function BoostFeed() {
+  const dialog = useDialog();
   const [posts, setPosts] = useState<BoostPost[]>([]);
   const [likes, setLikes] = useState(new Map<string, LikeState>());
   const [loading, setLoading] = useState(true);
@@ -132,11 +134,11 @@ export function BoostFeed() {
     const isImage = file.type.startsWith("image/");
     if (!isVideo && !isImage) return;
     if (isVideo && file.size > MAX_VIDEO_BYTES) {
-      alert("Video must be smaller than 100MB");
+      void dialog.alert("Video must be smaller than 100MB");
       return;
     }
     if (isImage && file.size > MAX_IMAGE_BYTES) {
-      alert("Image must be smaller than 10MB");
+      void dialog.alert("Image must be smaller than 10MB");
       return;
     }
     setMediaFile(file);

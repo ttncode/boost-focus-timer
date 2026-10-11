@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { disableNotifications, enableNotifications, notificationStatus, type NotificationStatus } from "../focus/notifications";
+import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
 import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
+import { useDialog } from "../dialogs/DialogProvider";
 
 const SUB_ITEM =
   "w-full px-4 py-2 text-left text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors flex items-center gap-2";
@@ -16,39 +17,32 @@ const SETTINGS: readonly { label: string; Icon: ComponentType<{ className?: stri
   { label: "Tags", Icon: Tag, target: "tags" },
 ];
 
-const NOTIFICATION_LABELS: Readonly<Record<Exclude<NotificationStatus, "unsupported">, string>> = {
-  on: "Notifications: On",
-  off: "Notifications: Off",
-  undecided: "Notifications: Off",
-  blocked: "Notifications: Blocked",
+const NOTIFICATION_LABELS: Readonly<Record<NotificationPermission, string>> = {
+  granted: "Notifications: On",
+  default: "Turn on notifications",
+  denied: "Notifications: Blocked",
 };
 
-const NOTIFICATION_HINTS: Readonly<Record<Exclude<NotificationStatus, "unsupported">, string>> = {
-  on: "Click to turn notifications off",
-  off: "Click to turn notifications on",
-  undecided: "Click to turn notifications on",
-  blocked: "Click to see how to allow notifications",
+const NOTIFICATION_HELP: Readonly<Record<"granted" | "denied", string>> = {
+  granted:
+    "Notifications are on: you'll get one when a focus session or break ends. To turn them off, block notifications for this site in your browser's site settings (the icon left of the address bar).",
+  denied:
+    "Notifications are blocked for this site. Allow them in your browser's site settings (the icon left of the address bar), then reload.",
 };
 
-const BLOCKED_HELP =
-  "Notifications are blocked for this site. Allow them in your browser's site settings (the icon left of the address bar), then reload.";
-
-/** A switch row: shows the current state and flips it; a blocked browser gets instructions instead. */
+/** Shows the browser's notification permission; asks again when the first-open prompt was dismissed. */
 function NotificationsItem() {
+  const dialog = useDialog();
   const [status, setStatus] = useState<NotificationStatus>(notificationStatus);
   if (status === "unsupported") return null;
 
-  const toggle = async () => {
-    if (status === "blocked") return alert(BLOCKED_HELP);
-    if (status === "on") {
-      disableNotifications();
-      return setStatus("off");
-    }
-    setStatus(await enableNotifications());
+  const act = async () => {
+    if (status === "default") setStatus(await requestNotificationPermission());
+    else await dialog.alert(NOTIFICATION_HELP[status], { title: "Notifications" });
   };
 
   return (
-    <button onClick={() => void toggle()} title={NOTIFICATION_HINTS[status]} className={SUB_ITEM}>
+    <button onClick={() => void act()} className={SUB_ITEM}>
       <Bell className="w-4 h-4" />
       <span>{NOTIFICATION_LABELS[status]}</span>
     </button>

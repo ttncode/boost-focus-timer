@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Check, Plus, Tag as TagIcon, X } from "../../icons";
 import { addTagToSession, createTagInDb, fetchTags, removeTagFromSession, TAG_COLORS, type Tag } from "./data";
+import { useDialog } from "../../dialogs/DialogProvider";
 
 interface TagSelectorProps {
   userId: string;
@@ -13,6 +14,7 @@ interface TagSelectorProps {
 }
 
 export function TagSelector({ userId, sessionId, selectedTags, onTagsChange, compact = false }: TagSelectorProps) {
+  const dialog = useDialog();
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [newTagName, setNewTagName] = useState("");
@@ -66,7 +68,7 @@ export function TagSelector({ userId, sessionId, selectedTags, onTagsChange, com
       })
       .catch((e: unknown) => {
         console.error("Failed to create tag:", e);
-        alert("Failed to create tag. It might already exist.");
+        void dialog.alert("Failed to create tag. It might already exist.");
       });
   }
 

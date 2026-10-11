@@ -11,6 +11,7 @@ import { GoalForm, hotkeyHint } from "./GoalForm";
 import { PixelArt } from "./PixelArt";
 import { notify } from "./notifications";
 import { playSound } from "./sounds";
+import { useDialog } from "../dialogs/DialogProvider";
 
 const DEFAULT_TITLE = "Boost Focus Timer";
 const HEARTBEAT_MS = 5000;
@@ -127,6 +128,7 @@ function TimerButton({
 }
 
 export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function FocusTimer(props, ref) {
+  const dialog = useDialog();
   const { isActive, onNavigateToTab, onTodayMinutesChange } = props;
 
   const [focus, setFocus] = useState<Countdown>(IDLE);
@@ -329,9 +331,9 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   });
 
   const startFocus = async () => {
-    if (!goal.trim() && !session) return alert("Please enter a focus goal");
+    if (!goal.trim() && !session) return void dialog.alert("Please enter a focus goal");
     const minutes = parseInt(inputMinutes);
-    if (!minutes || minutes <= 0) return alert("Please enter a valid time in minutes");
+    if (!minutes || minutes <= 0) return void dialog.alert("Please enter a valid time in minutes");
     localStorage.setItem("lastFocusDuration", String(minutes));
     try {
       const created = await databaseService.createFocusSession({ goal, planned_duration_minutes: minutes, session_type: "focus" });
@@ -348,7 +350,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
       sendHeartbeat(created);
     } catch (error) {
       console.error("Failed to start session:", error);
-      alert("Failed to start focus session. Please try again.");
+      void dialog.alert("Failed to start focus session. Please try again.");
     }
   };
 
@@ -382,7 +384,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
 
   const extendFocus = async () => {
     const minutes = parseInt(extendMinutes);
-    if (isNaN(minutes) || minutes <= 0) return alert("Please enter a valid number of minutes");
+    if (isNaN(minutes) || minutes <= 0) return void dialog.alert("Please enter a valid number of minutes");
     try {
       if (session) setSession(await databaseService.updateFocusSession(session.id, { completed: false, end_time: null }));
       setFocus({ minutes, seconds: 0, isRunning: true, isCompleted: false });
@@ -390,13 +392,13 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
       setFocusTotalMs(minutes * MINUTE_MS);
     } catch (error) {
       console.error("Failed to extend session:", error);
-      alert("Failed to extend session. Please try again.");
+      void dialog.alert("Failed to extend session. Please try again.");
     }
   };
 
   const startBreak = async () => {
     const minutes = parseInt(breakMinutes);
-    if (!minutes || minutes <= 0) return alert("Please enter a valid break time in minutes");
+    if (!minutes || minutes <= 0) return void dialog.alert("Please enter a valid break time in minutes");
     localStorage.setItem("lastBreakDuration", String(minutes));
     setSession(null);
     setBreakTimer(IDLE);

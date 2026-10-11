@@ -17,6 +17,7 @@ import {
   type GoalData,
   type UserDataRow,
 } from "./goals/goal-rows";
+import { useDialog } from "../dialogs/DialogProvider";
 
 const DELETE_GOAL_PROMPT =
   "Are you sure you want to permanently delete this goal?\n\nConsider archiving it instead to keep your history.";
@@ -36,6 +37,7 @@ function renumber(list: readonly Goal[]): { list: Goal[]; changed: Goal[] } {
 }
 
 export function GoalsPage({ userId }: { userId: string }) {
+  const dialog = useDialog();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [comments, setComments] = useState<CommentsByGoal>({});
   const [loading, setLoading] = useState(true);
@@ -143,8 +145,8 @@ export function GoalsPage({ userId }: { userId: string }) {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const deleteGoal = (id: string) => {
-    if (!confirm(DELETE_GOAL_PROMPT)) return;
+  const deleteGoal = async (id: string) => {
+    if (!(await dialog.confirm(DELETE_GOAL_PROMPT, { confirmLabel: "Delete", destructive: true }))) return;
     setGoals((prev) => prev.filter((g) => g.id !== id));
     deleteUserDataRow(id);
   };
@@ -164,8 +166,8 @@ export function GoalsPage({ userId }: { userId: string }) {
     return !error;
   };
 
-  const deleteComment = (id: string) => {
-    if (confirm("Delete this comment?")) deleteUserDataRow(id);
+  const deleteComment = async (id: string) => {
+    if (await dialog.confirm("Delete this comment?", { confirmLabel: "Delete", destructive: true })) deleteUserDataRow(id);
   };
 
   const persistOrder = async (ordered: readonly Goal[]) => {

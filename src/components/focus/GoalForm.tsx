@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { Check, Clock, Pencil, Plus, Tag as TagIcon, Target, X } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { databaseService, type Tag } from "../lib/database-service";
+import { useDialog } from "../dialogs/DialogProvider";
 
 export const hotkeyHint = (label: string, combo: string | null): string | undefined =>
   combo ? `${label} (${combo})` : undefined;
@@ -107,6 +108,7 @@ function TagSelector({
   onEditTags(): void;
   isActive: boolean;
 }) {
+  const dialog = useDialog();
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -139,7 +141,7 @@ function TagSelector({
       setIsCreating(false);
     } catch (error) {
       console.error("Failed to create tag:", error);
-      alert("Failed to create tag. It might already exist.");
+      void dialog.alert("Failed to create tag. It might already exist.");
     }
   };
 

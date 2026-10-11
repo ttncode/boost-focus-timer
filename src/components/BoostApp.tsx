@@ -2,13 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { DialogProvider } from "./dialogs/DialogProvider";
 import { FocusTimer } from "./focus/FocusTimer";
+import { askForNotificationsOnFirstOpen } from "./focus/notifications";
 import { HotkeysProvider, useHotkey, useHotkeyMap } from "./hotkeys/HotkeysProvider";
 import { databaseService } from "./lib/database-service";
 import { getLocalUserId } from "./lib/local-db";
 import { getDisplayName, saveDisplayName } from "./lib/profile";
 import { BottomNav } from "./shell/BottomNav";
-import { NotificationPrompt } from "./shell/NotificationPrompt";
 import { StartMenu } from "./shell/StartMenu";
 import { TopBar } from "./shell/TopBar";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, SHORT_VIEWPORT_QUERY, useMediaQuery } from "./shell/use-media-query";
@@ -28,9 +29,11 @@ function formatTodayMinutes(minutes: number): string {
 
 export function BoostApp() {
   return (
-    <HotkeysProvider>
-      <AppShell />
-    </HotkeysProvider>
+    <DialogProvider>
+      <HotkeysProvider>
+        <AppShell />
+      </HotkeysProvider>
+    </DialogProvider>
   );
 }
 
@@ -52,6 +55,8 @@ function AppShell() {
   const timerRef = useRef<FocusTimerHandle>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const isShortViewport = useMediaQuery(SHORT_VIEWPORT_QUERY);
+
+  useEffect(() => askForNotificationsOnFirstOpen(), []);
 
   useEffect(() => {
     databaseService.getTodayFocusMinutes().then(setTodayMinutes, (error: unknown) => {
@@ -210,7 +215,6 @@ function AppShell() {
         <BottomNav activeTab={tab} onTabChange={setTab} />
       </div>
       <StartMenu onNavigate={navigateFromCurrent} />
-      <NotificationPrompt />
     </>
   );
 }

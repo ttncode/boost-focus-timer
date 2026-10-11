@@ -57,6 +57,7 @@ import {
 } from "./history/stats";
 import { TagSelector } from "./history/TagSelector";
 import { TagsAnalytics } from "./history/TagsAnalytics";
+import { useDialog } from "../dialogs/DialogProvider";
 
 type PauseDetail = { start: string; end: string | null };
 
@@ -197,6 +198,7 @@ function MetricCard({ icon, label, scope, value, sub }: { icon: ReactNode; label
 }
 
 export function HistoryPage({ userId }: { userId: string }) {
+  const dialog = useDialog();
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [dayOffset, setDayOffset] = useState(0);
@@ -357,13 +359,13 @@ export function HistoryPage({ userId }: { userId: string }) {
       })
       .catch((e: unknown) => {
         console.error("Failed to update session:", e);
-        alert("Failed to update session times");
+        void dialog.alert("Failed to update session times");
       })
       .finally(() => setSaving(false));
   }
 
-  function doDeleteSession(sessionId: string) {
-    if (!confirm("Are you sure you want to delete this session? This action cannot be undone.")) return;
+  async function doDeleteSession(sessionId: string) {
+    if (!(await dialog.confirm("Are you sure you want to delete this session? This action cannot be undone.", { confirmLabel: "Delete", destructive: true }))) return;
     setDeleting(sessionId);
     deleteSessionById(sessionId)
       .then(() => {
@@ -375,7 +377,7 @@ export function HistoryPage({ userId }: { userId: string }) {
       })
       .catch((e: unknown) => {
         console.error("Failed to delete session:", e);
-        alert("Failed to delete session");
+        void dialog.alert("Failed to delete session");
       })
       .finally(() => setDeleting(null));
   }
