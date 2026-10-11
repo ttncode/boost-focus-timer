@@ -53,6 +53,35 @@ export async function requestNotificationPermission(): Promise<NotificationStatu
   }
 }
 
+// A real prompt waits for the user; anything faster means the browser refused to show one.
+const NO_PROMPT_SHOWN_MS = 500;
+const GESTURE_EVENTS = ["pointerdown", "keydown"] as const;
+
+/**
+ * Asks on first open. Chrome shows its prompt straight away. Firefox and Safari only allow the
+ * request inside a click or key press and answer "default" at once otherwise, so the ask is
+ * repeated on the user's first interaction. Edge shows its quiet bell instead and keeps waiting.
+ * Returns a cleanup that drops the pending first-interaction listener.
+ */
+export function askForNotificationsOnFirstOpen(): () => void {
+  if (notificationStatus() !== "default") return () => {};
+  let isDisposed = false;
+  const askFromGesture = () => {
+    stopListening();
+    void requestNotificationPermission();
+  };
+  const stopListening = () => GESTURE_EVENTS.forEach((type) => window.removeEventListener(type, askFromGesture, true));
+  const startedAt = Date.now();
+  void requestNotificationPermission().then((result) => {
+    const browserRefusedToPrompt = result === "default" && Date.now() - startedAt < NO_PROMPT_SHOWN_MS;
+    if (!isDisposed && browserRefusedToPrompt) GESTURE_EVENTS.forEach((type) => window.addEventListener(type, askFromGesture, true));
+  });
+  return () => {
+    isDisposed = true;
+    stopListening();
+  };
+}
+
 let clickHandlerInstalled = false;
 let previousExtensionId: string | null = null;
 let previousWebNotification: Notification | null = null;

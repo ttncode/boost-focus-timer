@@ -6,6 +6,7 @@ import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
+import { useDialog } from "../dialogs/DialogProvider";
 
 const SUB_ITEM =
   "w-full px-4 py-2 text-left text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors flex items-center gap-2";
@@ -31,12 +32,13 @@ const NOTIFICATION_HELP: Readonly<Record<"granted" | "denied", string>> = {
 
 /** Shows the browser's notification permission; asks again when the first-open prompt was dismissed. */
 function NotificationsItem() {
+  const dialog = useDialog();
   const [status, setStatus] = useState<NotificationStatus>(notificationStatus);
   if (status === "unsupported") return null;
 
   const act = async () => {
     if (status === "default") setStatus(await requestNotificationPermission());
-    else alert(NOTIFICATION_HELP[status]);
+    else await dialog.alert(NOTIFICATION_HELP[status], { title: "Notifications" });
   };
 
   return (

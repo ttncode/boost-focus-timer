@@ -6,6 +6,7 @@ import { useHotkey } from "../hotkeys/HotkeysProvider";
 import { localDb } from "../lib/local-db";
 import { createTagInDb, fetchTags, type Tag } from "../pages/history/data";
 import type { SubPageProps } from "../types";
+import { useDialog } from "../dialogs/DialogProvider";
 
 const TAG_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#6366f1", "#f97316", "#14b8a6", "#a855f7"];
 
@@ -64,6 +65,7 @@ function ColorGrid({ value, onChange }: { value: string; onChange(color: string)
 }
 
 export function TagsPage({ userId, onBack }: SubPageProps) {
+  const dialog = useDialog();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
       resetNew();
     } catch (error) {
       console.error("Error adding tag:", error);
-      alert("Failed to create tag. It might already exist.");
+      void dialog.alert("Failed to create tag. It might already exist.");
     }
   }
 
@@ -122,7 +124,7 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
       setEditingId(null);
     } catch (error) {
       console.error("Error updating tag:", error);
-      alert("Failed to update tag. The name might already exist.");
+      void dialog.alert("Failed to update tag. The name might already exist.");
     }
   }
 
@@ -138,18 +140,18 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
       await loadTags();
     } catch (error) {
       console.error("Error archiving/unarchiving tag:", error);
-      alert("Failed to archive/unarchive tag.");
+      void dialog.alert("Failed to archive/unarchive tag.");
     }
   }
 
   async function removeTag(tag: Tag) {
-    if (!confirm(tag.archived ? DELETE_ARCHIVED_CONFIRM : DELETE_ACTIVE_CONFIRM)) return;
+    if (!(await dialog.confirm(tag.archived ? DELETE_ARCHIVED_CONFIRM : DELETE_ACTIVE_CONFIRM, { confirmLabel: "Delete", destructive: true }))) return;
     try {
       await deleteTag(tag.id);
       setTags(tags.filter((t) => t.id !== tag.id));
     } catch (error) {
       console.error("Error deleting tag:", error);
-      alert("Failed to delete tag.");
+      void dialog.alert("Failed to delete tag.");
     }
   }
 

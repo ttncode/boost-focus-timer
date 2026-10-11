@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { DialogProvider } from "./dialogs/DialogProvider";
 import { FocusTimer } from "./focus/FocusTimer";
-import { requestNotificationPermission } from "./focus/notifications";
+import { askForNotificationsOnFirstOpen } from "./focus/notifications";
 import { HotkeysProvider, useHotkey, useHotkeyMap } from "./hotkeys/HotkeysProvider";
 import { databaseService } from "./lib/database-service";
 import { getLocalUserId } from "./lib/local-db";
@@ -28,9 +29,11 @@ function formatTodayMinutes(minutes: number): string {
 
 export function BoostApp() {
   return (
-    <HotkeysProvider>
-      <AppShell />
-    </HotkeysProvider>
+    <DialogProvider>
+      <HotkeysProvider>
+        <AppShell />
+      </HotkeysProvider>
+    </DialogProvider>
   );
 }
 
@@ -53,9 +56,7 @@ function AppShell() {
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const isShortViewport = useMediaQuery(SHORT_VIEWPORT_QUERY);
 
-  useEffect(() => {
-    void requestNotificationPermission();
-  }, []);
+  useEffect(() => askForNotificationsOnFirstOpen(), []);
 
   useEffect(() => {
     databaseService.getTodayFocusMinutes().then(setTodayMinutes, (error: unknown) => {
