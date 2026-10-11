@@ -53,5 +53,6 @@ export const Target = createIcon("Target", [["circle",{cx:"12",cy:"12",r:"10"}],
 export const Trash2 = createIcon("Trash2", [["path",{d:"M3 6h18"}],["path",{d:"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"}],["path",{d:"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"}],["line",{x1:"10",x2:"10",y1:"11",y2:"17"}],["line",{x1:"14",x2:"14",y1:"11",y2:"17"}]]);
 export const TrendingUp = createIcon("TrendingUp", [["polyline",{points:"22 7 13.5 15.5 8.5 10.5 2 17"}],["polyline",{points:"16 7 22 7 22 13"}]]);
 export const User = createIcon("User", [["path",{d:"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"}],["circle",{cx:"12",cy:"7",r:"4"}]]);
+export const Volume2 = createIcon("Volume2", [["polygon",{points:"11 5 6 9 2 9 2 15 6 15 11 19 11 5"}],["path",{d:"M15.54 8.46a5 5 0 0 1 0 7.07"}],["path",{d:"M19.07 4.93a10 10 0 0 1 0 14.14"}]]);
 export const XCircle = createIcon("XCircle", [["circle",{cx:"12",cy:"12",r:"10"}],["path",{d:"m15 9-6 6"}],["path",{d:"m9 9 6 6"}]]);
 export const X = createIcon("X", [["path",{d:"M18 6 6 18"}],["path",{d:"m6 6 12 12"}]]);

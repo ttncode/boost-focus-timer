@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
-import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag } from "../icons";
+import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag, Volume2 } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
+import { SoundsPanel } from "./SoundsPanel";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
 import { useDialog } from "../dialogs/DialogProvider";
 
@@ -52,6 +53,7 @@ function NotificationsItem() {
 export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSoundsOpen, setIsSoundsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   useHotkey("nav.menu", () => setIsOpen((open) => !open));
@@ -93,6 +95,16 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
                     <span>{label}</span>
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    setIsSoundsOpen(true);
+                    setIsOpen(false);
+                  }}
+                  className={SUB_ITEM}
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>Sounds</span>
+                </button>
                 <NotificationsItem />
               </div>
             ) : null}
@@ -108,6 +120,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
       >
         <Menu className="w-5 h-5" />
       </button>
+      {isSoundsOpen ? <SoundsPanel onClose={() => setIsSoundsOpen(false)} /> : null}
     </div>
   );
 }

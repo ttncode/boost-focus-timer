@@ -20,6 +20,7 @@ Runs as a web app or as a browser extension, and keeps every bit of data in your
 
 - **Focus timer** with pause, resume, breaks, extend-on-complete and goal history (press <kbd>↑</kbd>/<kbd>↓</kbd> in the goal field).
 - **Notifications** when a focus session or break runs out. The app asks for permission with Chrome's own prompt the first time you open it; **Menu → Settings → Notifications** shows the current state and asks again if you dismissed the prompt. If nothing appears, allow notifications for your browser in your system settings and turn off Do Not Disturb / Focus.
+- **Sound themes**: Classic (default), Glass, Wood, Singing bowl, Soft or Silent, each covering start, finish, break, back to work, pause, resume and button taps. Preview and pick them in **Menu → Settings → Sounds**. All sounds are synthesized in the browser.
 - **Pixel-art progress animations** — a coffee cup that fills, a battery that charges, a rocket that lifts off — plus an auto-shuffle option.
 - **To-dos** with time estimates, notes, drag-and-drop ordering, a backlog and archive; start a focus session straight from a to-do.
 - **Habits** with 7- and 30-day grids and notes per day.
