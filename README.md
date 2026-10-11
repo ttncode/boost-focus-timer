@@ -19,7 +19,7 @@ Runs as a web app or as a browser extension, and keeps every bit of data in your
 ## What you get
 
 - **Focus timer** with pause, resume, breaks, extend-on-complete and goal history (press <kbd>↑</kbd>/<kbd>↓</kbd> in the goal field).
-- **Notifications** when a session or break ends while the timer tab is in the background (the app offers to turn them on the first time you open it).
+- **Notifications** when a focus session or break runs out. The app offers to turn them on the first time you open it; you can also turn them on, test them or see why they are blocked from **Menu → Settings → Notifications**.
 - **Pixel-art progress animations** — a coffee cup that fills, a battery that charges, a rocket that lifts off — plus an auto-shuffle option.
 - **To-dos** with time estimates, notes, drag-and-drop ordering, a backlog and archive; start a focus session straight from a to-do.
 - **Habits** with 7- and 30-day grids and notes per day.

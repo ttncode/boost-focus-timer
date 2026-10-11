@@ -25,11 +25,14 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 }
 
-/** Shows a system notification only while the timer tab is out of view; the chime covers the visible case. */
+export type NotificationStatus = "unsupported" | NotificationPermission;
+
+export const notificationStatus = (): NotificationStatus => (isSupported() ? Notification.permission : "unsupported");
+
+/** Shows a system notification when the user has allowed them; silent because the end bell already plays. */
 export function notify(title: string, body: string): void {
-  if (!isSupported() || Notification.permission !== "granted" || document.visibilityState === "visible") return;
+  if (!isSupported() || Notification.permission !== "granted") return;
   try {
-    // Silent because the end bell already plays; the notification is the visual cue.
     const notification = new Notification(title, { body, icon: ICON, tag: TAG, silent: true });
     notification.onclick = () => {
       window.focus();
