@@ -28,3 +28,23 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: check
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:extension
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: boost-focus-timer-extension
+          path: dist/*.zip
+          if-no-files-found: error
