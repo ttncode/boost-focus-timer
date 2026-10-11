@@ -12,7 +12,7 @@ Runs as a web app or as a browser extension, and keeps every bit of data in your
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)
 ![Data stays local](https://img.shields.io/badge/data-local%20only-374151)
 
-<img src="docs/screenshots/focus-running.png" alt="A focus session in progress: a pixel-art rocket climbs as the countdown runs, with Pause, Done and Reset buttons" width="820">
+<img src="docs/screenshots/focus-running.png" alt="A focus session in progress: a pixel-art coffee cup half full as the countdown runs, with Pause, Done and Reset buttons" width="820">
 
 </div>
 
