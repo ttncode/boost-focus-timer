@@ -10,7 +10,7 @@ import { ANIMATIONS, DEFAULT_ANIMATION, currentFrame, isAnimationType, metaOf, t
 import { GoalForm, hotkeyHint } from "./GoalForm";
 import { PixelArt } from "./PixelArt";
 import { notify } from "./notifications";
-import { playSound } from "./sounds";
+import { OWN_SOUND_ATTRIBUTE, playSound } from "./sounds";
 import { useDialog } from "../dialogs/DialogProvider";
 
 const DEFAULT_TITLE = "Boost Focus Timer";
@@ -121,7 +121,7 @@ function TimerButton({
   children: ReactNode;
 }) {
   return (
-    <button onClick={onClick} className={className} title={title}>
+    <button onClick={onClick} className={className} title={title} {...{ [OWN_SOUND_ATTRIBUTE]: "" }}>
       {children}
     </button>
   );
@@ -293,7 +293,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     titleSuffix: goal || "Focus",
     onTick: (minutes, seconds) => setFocus((current) => ({ ...current, minutes, seconds })),
     onComplete: () => {
-      playSound("end");
+      playSound("focusEnd");
       notify("Focus session complete", `${goal.trim() || "Nice work"} · time for a break.`);
       setFocusStart(null);
       setFocus({ ...IDLE, isCompleted: true });
@@ -323,7 +323,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     titleSuffix: "Break",
     onTick: (minutes, seconds) => setBreakTimer((current) => ({ ...current, minutes, seconds })),
     onComplete: () => {
-      playSound("end");
+      playSound("breakEnd");
       notify("Break is over", "Ready for the next focus session?");
       void completeBreakSession();
       finishBreak();
@@ -338,7 +338,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     try {
       const created = await databaseService.createFocusSession({ goal, planned_duration_minutes: minutes, session_type: "focus" });
       setSession(created);
-      playSound("start");
+      playSound("focusStart");
       if (goal.trim()) setGoalHistory((history) => [goal, ...history]);
       setFocusStart(Date.now());
       setFocusTotalMs(minutes * MINUTE_MS);
@@ -355,6 +355,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const pauseFocus = async () => {
+    playSound("pause");
     if (focusStart === null) return setFocus((current) => ({ ...current, isRunning: false }));
     const remaining = Math.max(0, focusTotalMs - (Date.now() - focusStart));
     setFocus((current) => ({ ...current, ...splitMs(remaining), isRunning: false }));
@@ -366,7 +367,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const resumeFocus = async () => {
-    playSound("start");
+    playSound("resume");
     await endPause(pauseId, setPauseId);
     sendHeartbeat(session);
     setFocusStart(Date.now() - (focusTotalMs - remainingMsOf(focus)));
@@ -374,7 +375,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const completeEarly = async () => {
-    playSound("end");
+    playSound("focusEnd");
     document.title = DEFAULT_TITLE;
     setFocusStart(null);
     await endPause(pauseId, setPauseId);
@@ -406,7 +407,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
       .createFocusSession({ goal: "Break time", planned_duration_minutes: minutes, session_type: "break" })
       .catch(logError("Failed to start break session:"));
     if (created) setBreakSession(created);
-    playSound("start");
+    playSound("breakStart");
     setBreakStart(Date.now());
     setBreakTotalMs(minutes * MINUTE_MS);
     setBreakTimer({ minutes, seconds: 0, isRunning: true, isCompleted: false });
@@ -415,6 +416,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const pauseBreak = async () => {
+    playSound("pause");
     if (breakStart === null) return setBreakTimer((current) => ({ ...current, isRunning: false }));
     const remaining = Math.max(0, breakTotalMs - (Date.now() - breakStart));
     setBreakTimer((current) => ({ ...current, ...splitMs(remaining), isRunning: false }));
@@ -426,14 +428,14 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const resumeBreak = async () => {
-    playSound("start");
+    playSound("resume");
     await endPause(breakPauseId, setBreakPauseId);
     setBreakStart(Date.now() - (breakTotalMs - remainingMsOf(breakTimer)));
     setBreakTimer((current) => ({ ...current, isRunning: true }));
   };
 
   const endBreak = async () => {
-    playSound("end");
+    playSound("breakEnd");
     document.title = DEFAULT_TITLE;
     await completeBreakSession();
     finishBreak();
