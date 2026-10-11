@@ -9,6 +9,7 @@ import { AnimationPicker } from "./AnimationPicker";
 import { ANIMATIONS, DEFAULT_ANIMATION, currentFrame, isAnimationType, metaOf, type AnimationType, type FrameState } from "./animations";
 import { GoalForm, hotkeyHint } from "./GoalForm";
 import { PixelArt } from "./PixelArt";
+import { notify, requestNotificationPermission } from "./notifications";
 import { playSound } from "./sounds";
 
 const DEFAULT_TITLE = "Boost Focus Timer";
@@ -292,6 +293,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     onTick: (minutes, seconds) => setFocus((current) => ({ ...current, minutes, seconds })),
     onComplete: () => {
       playSound("end");
+      notify("Focus session complete", `${goal.trim() || "Nice work"} · time for a break.`);
       setFocusStart(null);
       setFocus({ ...IDLE, isCompleted: true });
       void completeSession();
@@ -322,12 +324,14 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     onTick: (minutes, seconds) => setBreakTimer((current) => ({ ...current, minutes, seconds })),
     onComplete: () => {
       playSound("end");
+      notify("Break is over", "Ready for the next focus session?");
       void completeBreakSession();
       finishBreak();
     },
   });
 
   const startFocus = async () => {
+    requestNotificationPermission();
     if (!goal.trim() && !session) return alert("Please enter a focus goal");
     const minutes = parseInt(inputMinutes);
     if (!minutes || minutes <= 0) return alert("Please enter a valid time in minutes");
@@ -394,6 +398,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   const startBreak = async () => {
+    requestNotificationPermission();
     const minutes = parseInt(breakMinutes);
     if (!minutes || minutes <= 0) return alert("Please enter a valid break time in minutes");
     localStorage.setItem("lastBreakDuration", String(minutes));

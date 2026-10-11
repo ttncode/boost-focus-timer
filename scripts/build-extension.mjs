@@ -72,6 +72,8 @@ function writeManifest() {
     version,
     description,
     icons,
+    // Lets the timer page show session-complete notifications without a prompt.
+    permissions: ["notifications"],
     action: { default_title: "Open Boost Focus Timer", default_icon: icons },
     background: { service_worker: "background.js" },
     // Unassigned by default; users pick a key at chrome://extensions/shortcuts.
