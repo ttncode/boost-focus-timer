@@ -55,6 +55,8 @@ import {
   yAxisFormatter,
   type DailyComparison,
 } from "./history/stats";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { TagSelector } from "./history/TagSelector";
 import { TagsAnalytics } from "./history/TagsAnalytics";
 import { useDialog } from "../dialogs/DialogProvider";
@@ -69,6 +71,8 @@ const PERIODS: { period: DailyFocusPeriod; label: string }[] = [
   { period: "365days", label: "Last 365 Days" },
   { period: "custom", label: "Custom" },
 ];
+
+const CYCLED_PERIODS: readonly DailyFocusPeriod[] = PERIODS.map((p) => p.period).filter((period) => period !== "custom");
 
 const AXIS = { axisLine: { stroke: "#374151" }, tickLine: { stroke: "#374151" } };
 const CURSOR = { fill: "rgba(59, 130, 246, 0.1)" };
@@ -389,6 +393,20 @@ export function HistoryPage({ userId }: { userId: string }) {
   }
 
   const groupedSessions = groupSessionsByDate(sessions);
+  const isDailyFocusShown = !loading && sessions.length > 0 && showDailyFocus;
+  const hasPeriodArrows = isDailyFocusShown && dailyFocusPeriod !== "custom" && !chartLoading;
+  const previousPeriod = () => setDayOffset(dayOffset + 1);
+  const nextPeriod = () => setDayOffset(Math.max(0, dayOffset - 1));
+  const cyclePeriod = () => {
+    const index = CYCLED_PERIODS.indexOf(dailyFocusPeriod);
+    selectPeriod(CYCLED_PERIODS[(index + 1) % CYCLED_PERIODS.length]);
+  };
+  useHotkey("list.prev", previousPeriod, hasPeriodArrows);
+  useHotkey("list.next", nextPeriod, hasPeriodArrows && dayOffset > 0);
+  useHotkey("history.period", cyclePeriod, isDailyFocusShown && !chartLoading);
+  const prevCombo = useHotkeyLabel("list.prev");
+  const nextCombo = useHotkeyLabel("list.next");
+  const periodCombo = useHotkeyLabel("history.period");
   const stats = calculateStats(sessions);
   const comparison = calculateComparisonStats(sessions, weekOffset);
   const dailyComparisonData = getDailyComparisonData(sessions, weekOffset);
@@ -418,7 +436,7 @@ export function HistoryPage({ userId }: { userId: string }) {
         <>
           <Section title={<h2 className="text-lg font-semibold text-white">Daily Focus Time</h2>} open={showDailyFocus} onToggle={toggleDailyFocus}>
             <div className="flex flex-col gap-2 mb-3">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" title={hotkeyHint("Next chart range", periodCombo)}>
                 {PERIODS.map((p) => (
                   <PeriodButton key={p.period} period={p.period} label={p.label} current={dailyFocusPeriod} loading={chartLoading} onSelect={selectPeriod} />
                 ))}
@@ -426,15 +444,17 @@ export function HistoryPage({ userId }: { userId: string }) {
               {dailyFocusPeriod !== "custom" && (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setDayOffset(dayOffset + 1)}
+                    onClick={previousPeriod}
                     disabled={chartLoading}
+                    title={hotkeyHint("Previous period", prevCombo)}
                     className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => setDayOffset(Math.max(0, dayOffset - 1))}
+                    onClick={nextPeriod}
                     disabled={dayOffset === 0 || chartLoading}
+                    title={hotkeyHint("Next period", nextCombo)}
                     className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-5 h-5" />

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Archive, ArchiveRestore, Plus } from "../icons";
-import { useHotkey } from "../hotkeys/HotkeysProvider";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { localDb, type ChangePayload } from "../lib/local-db";
 import { GoalCard, type EditDraft } from "./goals/GoalCard";
 import {
@@ -198,6 +199,8 @@ export function GoalsPage({ userId }: { userId: string }) {
 
   const activeGoals = goals.filter((g) => !g.data.archived);
   const archivedGoals = goals.filter((g) => g.data.archived);
+  useHotkey("list.archived", () => setShowArchived((current) => !current), archivedGoals.length > 0);
+  const archivedCombo = useHotkeyLabel("list.archived");
 
   const swapActive = (index: number, other: number) => {
     const reordered = [...activeGoals];
@@ -292,6 +295,7 @@ export function GoalsPage({ userId }: { userId: string }) {
         <div className="mt-8">
           <button
             onClick={() => setShowArchived(!showArchived)}
+            title={hotkeyHint(showArchived ? "Hide archived" : "Show archived", archivedCombo)}
             className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4"
           >
             <Archive size={16} />

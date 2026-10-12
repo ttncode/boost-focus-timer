@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Globe, Handshake, Loader2, Lock, Paperclip, Send, Sparkles, Trash2, X } from "../icons";
-import { useHotkey } from "../hotkeys/HotkeysProvider";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { getDisplayName } from "../lib/profile";
 import { getLocalUserId, localDb, type Row } from "../lib/local-db";
 import { PostContent } from "./PostContent";
@@ -106,6 +107,8 @@ export function BoostFeed() {
   useHotkey("list.new", () => composerRef.current?.focus());
   useHotkey("boost.post", () => formRef.current?.requestSubmit());
   useHotkey("boost.attach", () => fileInputRef.current?.click());
+  useHotkey("boost.visibility", () => setIsPublic((current) => !current), !loading);
+  const visibilityCombo = useHotkeyLabel("boost.visibility");
   const dragDepthRef = useRef(0);
 
   useEffect(() => {
@@ -313,6 +316,7 @@ export function BoostFeed() {
               <button
                 type="button"
                 onClick={() => setIsPublic(!isPublic)}
+                title={hotkeyHint(isPublic ? "Make private" : "Make public", visibilityCombo)}
                 className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 {isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}

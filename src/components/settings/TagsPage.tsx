@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Archive, ArchiveX, ArrowLeft, Pen, Plus, Save, Trash2, XCircle } from "../icons";
-import { useHotkey } from "../hotkeys/HotkeysProvider";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { localDb } from "../lib/local-db";
 import { createTagInDb, fetchTags, type Tag } from "../pages/history/data";
 import type { SubPageProps } from "../types";
@@ -76,6 +77,10 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
   const [newColor, setNewColor] = useState(TAG_COLORS[0]);
   const [showArchived, setShowArchived] = useState(false);
   useHotkey("list.new", () => setIsAdding(true));
+  useHotkey("page.back", onBack);
+  useHotkey("list.archived", () => setShowArchived((current) => !current), tags.some((t) => t.archived));
+  const backCombo = useHotkeyLabel("page.back");
+  const archivedCombo = useHotkeyLabel("list.archived");
 
   const loadTags = useCallback(async () => {
     try {
@@ -170,7 +175,7 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg">
+          <button onClick={onBack} title={hotkeyHint("Back", backCombo)} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
@@ -286,6 +291,7 @@ export function TagsPage({ userId, onBack }: SubPageProps) {
           <div className="mt-8">
             <button
               onClick={() => setShowArchived(!showArchived)}
+              title={hotkeyHint(showArchived ? "Hide archived" : "Show archived", archivedCombo)}
               className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4"
             >
               <Archive className="w-4 h-4" />

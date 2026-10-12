@@ -276,6 +276,12 @@ export function GoalForm({
     goalInput.current?.focus();
     goalInput.current?.select();
   }, isActive);
+  const minutesInput = useRef<HTMLInputElement>(null);
+  useHotkey("timer.minutes", () => {
+    minutesInput.current?.focus();
+    minutesInput.current?.select();
+  }, isActive);
+  const minutesCombo = useHotkeyLabel("timer.minutes");
   // -1 = typing a fresh goal; otherwise the index into goalHistory being previewed.
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [draftGoal, setDraftGoal] = useState("");
@@ -327,6 +333,7 @@ export function GoalForm({
             Minutes
           </FieldLabel>
           <input
+            ref={minutesInput}
             type="number"
             value={inputMinutes}
             onChange={(event) => onMinutesChange(event.target.value)}
@@ -335,6 +342,7 @@ export function GoalForm({
             }}
             min="1"
             max="120"
+            title={hotkeyHint("Minutes", minutesCombo)}
             className={INPUT_CLASS}
           />
         </div>

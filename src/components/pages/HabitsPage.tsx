@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Archive, ArchiveRestore, Calendar, ChevronLeft, ChevronRight, Plus, Trash2 } from "../icons";
-import { useHotkey } from "../hotkeys/HotkeysProvider";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { localDb } from "../lib/local-db";
 import { HabitCard, type HabitEdit } from "./habits/HabitCard";
 import { ColorPicker, FIELD_INPUT, FieldLabel, PRIMARY_BUTTON, SECONDARY_BUTTON } from "./habits/HabitFields";
@@ -118,11 +119,13 @@ function useHabitData(userId: string) {
 
 function ArchivedHabits({ habits, onRestore, onDelete }: { habits: readonly Habit[]; onRestore(habit: Habit): void; onDelete(habit: Habit): void }) {
   const [open, setOpen] = useState(false);
+  useHotkey("list.archived", () => setOpen((current) => !current), habits.length > 0);
+  const archivedCombo = useHotkeyLabel("list.archived");
   if (habits.length === 0) return null;
   const iconButton = "text-gray-500 transition-colors p-2 rounded-lg hover:bg-gray-800 opacity-0 group-hover:opacity-100";
   return (
     <div className="mt-8">
-      <button onClick={() => setOpen(!open)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
+      <button onClick={() => setOpen(!open)} title={hotkeyHint(open ? "Hide archived" : "Show archived", archivedCombo)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
         <Archive size={16} />
         {open ? "Hide archived habits" : `Show archived habits (${habits.length})`}
       </button>
@@ -356,6 +359,16 @@ export function HabitsPage({ userId }: { userId: string }) {
     setViewMode(mode);
     setDayOffset(0);
   };
+  // The period bar is only rendered while there are active habits.
+  const hasPeriodBar = !loading && sortedActive.length > 0;
+  const previousPeriod = () => setDayOffset(dayOffset + 1);
+  const nextPeriod = () => dayOffset > 0 && setDayOffset(dayOffset - 1);
+  useHotkey("list.prev", previousPeriod, hasPeriodBar);
+  useHotkey("list.next", nextPeriod, hasPeriodBar);
+  useHotkey("list.range", () => pickView(viewMode === "7days" ? "30days" : "7days"), hasPeriodBar);
+  const prevCombo = useHotkeyLabel("list.prev");
+  const nextCombo = useHotkeyLabel("list.next");
+  const rangeCombo = useHotkeyLabel("list.range");
   const viewButton = (mode: ViewMode) => "px-3 py-1 text-sm rounded-md transition-colors " + (viewMode === mode ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white");
 
   if (loading) {
@@ -391,12 +404,12 @@ export function HabitsPage({ userId }: { userId: string }) {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-gray-900 rounded-xl p-4 border border-gray-800">
-            <button onClick={() => setDayOffset(dayOffset + 1)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+            <button onClick={previousPeriod} title={hotkeyHint("Previous period", prevCombo)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-4">
               <span className="text-white font-medium">{rangeLabel(dayOffset, viewMode)}</span>
-              <div className="flex bg-gray-800 rounded-lg p-1">
+              <div className="flex bg-gray-800 rounded-lg p-1" title={hotkeyHint("Switch 7 / 30 days", rangeCombo)}>
                 <button onClick={() => pickView("7days")} className={viewButton("7days")}>
                   7 Days
                 </button>
@@ -406,8 +419,9 @@ export function HabitsPage({ userId }: { userId: string }) {
               </div>
             </div>
             <button
-              onClick={() => dayOffset > 0 && setDayOffset(dayOffset - 1)}
+              onClick={nextPeriod}
               disabled={dayOffset === 0}
+              title={hotkeyHint("Next period", nextCombo)}
               className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
             >
               <ChevronRight className="w-5 h-5" />

@@ -66,6 +66,8 @@ export function AnimationPicker({
   onAutoShuffleToggle,
 }: AnimationPickerProps) {
   const toggleCombo = useHotkeyLabel("timer.animation");
+  const shuffleCombo = useHotkeyLabel("timer.shuffle");
+  const nextCombo = useHotkeyLabel("timer.nextAnimation");
   return (
     <div className="mb-8 px-2 sm:px-0 relative">
       <button
@@ -98,6 +100,7 @@ export function AnimationPicker({
           <button
             type="button"
             onClick={onAutoShuffleToggle}
+            title={hotkeyHint("Auto-shuffle animations", shuffleCombo)}
             className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
               autoShuffle ? "border-blue-500 bg-blue-900/30" : "border-gray-700 bg-gray-900 hover:border-gray-600"
             }`}
@@ -118,7 +121,7 @@ export function AnimationPicker({
             </div>
           </button>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3" title={hotkeyHint("Next animation", nextCombo)}>
             {ANIMATIONS.map(({ type, title }) => {
               const isSelected = selectedAnimation === type;
               return (
