@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { Save } from "../icons";
 import { localDb, type Row } from "../lib/local-db";
 
@@ -77,6 +79,12 @@ export function AboutMePage({ userId }: { userId: string }) {
     setSaving(false);
   };
 
+  // Always claimed on this page so Ctrl+S never opens the browser's "Save page" dialog here.
+  useHotkey("page.save", () => {
+    if (dirty && !saving) void save();
+  });
+  const saveCombo = useHotkeyLabel("page.save");
+
   // Cmd/Ctrl+Enter saves from anywhere on the page.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -142,6 +150,7 @@ export function AboutMePage({ userId }: { userId: string }) {
           <button
             onClick={() => void save()}
             disabled={saving}
+            title={hotkeyHint("Save", saveCombo)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-5 h-5" />

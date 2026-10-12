@@ -18,7 +18,8 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Archive, ArchiveRestore, Clock, ListTodo, Plus, Trash2 } from "../icons";
-import { useHotkey } from "../hotkeys/HotkeysProvider";
+import { hotkeyHint } from "../focus/GoalForm";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { localDb } from "../lib/local-db";
 import { TodoItem, type TodoItemHandlers } from "./todos/TodoItem";
 import { byPosition, formatTime, todoFromRow, type Todo, type TodoData, type TodoUpdates, type UserDataRow } from "./todos/todo-model";
@@ -75,10 +76,12 @@ function TodoStats({ todos }: { todos: readonly Todo[] }) {
 
 function ArchivedTodos({ todos, onRestore, onDelete }: { todos: readonly Todo[]; onRestore(id: string): void; onDelete(id: string): void }) {
   const [open, setOpen] = useState(false);
+  useHotkey("list.archived", () => setOpen((current) => !current), todos.length > 0);
+  const archivedCombo = useHotkeyLabel("list.archived");
   if (todos.length === 0) return null;
   return (
     <div className="mt-8">
-      <button onClick={() => setOpen(!open)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
+      <button onClick={() => setOpen(!open)} title={hotkeyHint(open ? "Hide archived" : "Show archived", archivedCombo)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
         <Archive size={16} />
         {open ? "Hide archived to-dos" : `Show archived to-dos (${todos.length})`}
       </button>
@@ -160,6 +163,9 @@ export function TodosPage({ userId, onFocusWithTodo }: { userId: string; onFocus
   const backlogTodos = useMemo(() => todos.filter((t) => !t.archived && t.backlog).sort(byPosition), [todos]);
   const archivedTodos = useMemo(() => todos.filter((t) => t.archived), [todos]);
   const mainSectionTodos = useMemo(() => [...suggestedTodos, ...mainTodos], [suggestedTodos, mainTodos]);
+  const hasBacklogToggle = mainSectionTodos.length > 0 || backlogTodos.length > 0;
+  useHotkey("list.backlog", () => setShowBacklog((current) => !current), hasBacklogToggle);
+  const backlogCombo = useHotkeyLabel("list.backlog");
 
   const updateTodo = async (id: string, updates: TodoUpdates) => {
     const original = todos.find((t) => t.id === id);
@@ -382,9 +388,9 @@ export function TodosPage({ userId, onFocusWithTodo }: { userId: string; onFocus
 
         <TodoStats todos={mainTodos} />
 
-        {(mainSectionTodos.length > 0 || backlogTodos.length > 0) && (
+        {hasBacklogToggle && (
           <div className="mt-6">
-            <button onClick={() => setShowBacklog(!showBacklog)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
+            <button onClick={() => setShowBacklog(!showBacklog)} title={hotkeyHint(showBacklog ? "Hide backlog" : "Show backlog", backlogCombo)} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2 mx-auto mb-4">
               <ListTodo size={16} />
               {showBacklog ? "Hide backlog" : `Show backlog (${backlogTodos.length})`}
             </button>

@@ -192,6 +192,11 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     localStorage.setItem(SELECTED_ANIMATION_KEY, type);
   };
 
+  const selectNextAnimation = () => {
+    const index = ANIMATIONS.findIndex((animation) => animation.type === selectedAnimation);
+    selectAnimation(ANIMATIONS[(index + 1) % ANIMATIONS.length].type);
+  };
+
   const rerollAnimation = () => {
     if (autoShuffle) setSelectedAnimation(randomAnimationOtherThan(selectedAnimation));
   };
@@ -533,9 +538,16 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   useHotkey("timer.end", endCurrent, isActive);
   useHotkey("timer.switch", switchMode, isActive);
   useHotkey("timer.animation", () => setShowPicker((visible) => !visible), isActive && isIdle);
+  useHotkey("timer.shuffle", toggleAutoShuffle, isActive && isIdle);
+  useHotkey("timer.nextAnimation", selectNextAnimation, isActive && isIdle);
+  const isSessionComplete = !isIdle && !isOnBreak && focus.isCompleted;
+  useHotkey("timer.reset", resetTimer, isActive && !isIdle && !isDirectBreak && !isOnBreak);
+  useHotkey("timer.extend", () => void extendFocus(), isActive && isSessionComplete);
   const toggleCombo = useHotkeyLabel("timer.toggle");
   const endCombo = useHotkeyLabel("timer.end");
   const switchCombo = useHotkeyLabel("timer.switch");
+  const resetCombo = useHotkeyLabel("timer.reset");
+  const extendCombo = useHotkeyLabel("timer.extend");
   const inputForPhase = isOnBreak ? breakMinutes : inputMinutes;
   const frameState: FrameState = {
     isOnBreak,
@@ -631,7 +643,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
             />
           </div>
 
-          {focus.isCompleted && !isOnBreak ? (
+          {isSessionComplete ? (
             <div className="bg-green-900/20 border border-green-700/40 rounded-xl px-3 py-2.5 mb-2.5 text-left">
               <div className="flex items-center justify-center gap-1.5 mb-2.5">
                 <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -654,6 +666,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
                   <span className="text-gray-500 text-xs">min</span>
                   <button
                     onClick={extendFocus}
+                    title={hotkeyHint("Extend", extendCombo)}
                     className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-medium transition-colors"
                   >
                     Extend
@@ -731,7 +744,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
               <Play className="w-5 h-5" />
               Start Break
             </TimerButton>
-            <TimerButton onClick={resetTimer} className={`${BUTTON_BASE} px-4 py-3 bg-gray-500 hover:bg-gray-600`}>
+            <TimerButton onClick={resetTimer} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_BASE} px-4 py-3 bg-gray-500 hover:bg-gray-600`}>
               <RotateCcw className="w-5 h-5" />
               Reset
             </TimerButton>
@@ -753,7 +766,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
               <Target className={ICON_SMALL} />
               <span>Done</span>
             </TimerButton>
-            <TimerButton onClick={resetTimer} className={`${BUTTON_SMALL} bg-gray-500 hover:bg-gray-600`}>
+            <TimerButton onClick={resetTimer} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_SMALL} bg-gray-500 hover:bg-gray-600`}>
               <RotateCcw className={ICON_SMALL} />
               Reset
             </TimerButton>

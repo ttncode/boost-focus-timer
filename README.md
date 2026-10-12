@@ -74,14 +74,25 @@ Press <kbd>Ctrl</kbd>+<kbd>/</kbd> to open the shortcut list. Click a key to cha
 | | Focus summary | <kbd>Alt</kbd>+<kbd>H</kbd> |
 | | About Me · Tags | <kbd>Alt</kbd>+<kbd>P</kbd> · <kbd>Alt</kbd>+<kbd>T</kbd> |
 | | Open / close menu | <kbd>Alt</kbd>+<kbd>M</kbd> |
+| | Back (Tags page) | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> |
 | Focus timer | Start / pause / resume | <kbd>Alt</kbd>+<kbd>S</kbd> |
 | | Switch focus / break | <kbd>Alt</kbd>+<kbd>B</kbd> |
 | | End or complete session | <kbd>Alt</kbd>+<kbd>X</kbd> |
 | | Edit focus goal · Choose animation | <kbd>Alt</kbd>+<kbd>G</kbd> · <kbd>Alt</kbd>+<kbd>A</kbd> |
 | | Add tag | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> |
+| | Reset session · Extend finished session | <kbd>Alt</kbd>+<kbd>R</kbd> · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> |
+| | Edit minutes | <kbd>Alt</kbd>+<kbd>I</kbd> |
+| | Auto-shuffle animations on/off · Next animation | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> |
 | Lists | New item on the current page | <kbd>Alt</kbd>+<kbd>N</kbd> |
 | | Post to Boost · Attach media | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> · <kbd>Alt</kbd>+<kbd>U</kbd> |
+| | Public / private post | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> |
+| | Show / hide archived · Show / hide backlog | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> |
+| | Switch 7 / 30 days (Habits) | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> |
+| | Previous · next period | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd> · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> |
+| | Next chart range (Focus summary) | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> |
 | App | Edit display name | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> |
+| | Save page (About Me) | <kbd>Ctrl</kbd>+<kbd>S</kbd> |
+| | Sounds · Notifications | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> |
 | | Show or hide the shortcut list | <kbd>Ctrl</kbd>+<kbd>/</kbd> |
 
 Shortcuts without <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or <kbd>Meta</kbd> are ignored while you type in a field. Hover a button to see its current shortcut. On Linux, Chrome reserves <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>8</kbd> for switching tabs; rebind those if they clash.

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
 import { Bell, ChevronDown, CircleUser, Expand, Menu, Settings, Tag, Volume2 } from "../icons";
+import { hotkeyHint } from "../focus/GoalForm";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { isPopupView, openFullPage } from "../lib/extension";
@@ -32,19 +33,26 @@ const NOTIFICATION_HELP: Readonly<Record<"granted" | "denied", string>> = {
     "Notifications are blocked for this site. Allow them in your browser's site settings (the icon left of the address bar), then reload.",
 };
 
+/** Asks for permission while undecided, otherwise explains how to change it; resolves to the resulting status. */
+async function actOnNotifications(dialog: ReturnType<typeof useDialog>): Promise<NotificationStatus> {
+  const status = notificationStatus();
+  if (status === "unsupported") return status;
+  if (status === "default") return requestNotificationPermission();
+  await dialog.alert(NOTIFICATION_HELP[status], { title: "Notifications" });
+  return status;
+}
+
 /** Shows the browser's notification permission; asks again when the first-open prompt was dismissed. */
 function NotificationsItem() {
   const dialog = useDialog();
   const [status, setStatus] = useState<NotificationStatus>(notificationStatus);
+  const combo = useHotkeyLabel("app.notifications");
   if (status === "unsupported") return null;
 
-  const act = async () => {
-    if (status === "default") setStatus(await requestNotificationPermission());
-    else await dialog.alert(NOTIFICATION_HELP[status], { title: "Notifications" });
-  };
+  const act = async () => setStatus(await actOnNotifications(dialog));
 
   return (
-    <button onClick={() => void act()} className={SUB_ITEM}>
+    <button onClick={() => void act()} title={hotkeyHint("Notifications", combo)} className={SUB_ITEM}>
       <Bell className="w-4 h-4" />
       <span>{NOTIFICATION_LABELS[status]}</span>
     </button>
@@ -52,6 +60,7 @@ function NotificationsItem() {
 }
 
 export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
+  const dialog = useDialog();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isSoundsOpen, setIsSoundsOpen] = useState(false);
@@ -66,6 +75,17 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const menuCombo = useHotkeyLabel("nav.menu");
   const fullPageCombo = useHotkeyLabel("app.fullPage");
   useHotkey("app.fullPage", () => void openFullPage(), isPopup);
+  useHotkey("app.sounds", () => {
+    setIsSoundsOpen(true);
+    setIsOpen(false);
+  });
+  const soundsCombo = useHotkeyLabel("app.sounds");
+  const [notificationsSupported] = useState(() => notificationStatus() !== "unsupported");
+  // Closing the menu keeps its Notifications item from showing a status the hotkey just changed.
+  useHotkey("app.notifications", () => {
+    setIsOpen(false);
+    void actOnNotifications(dialog);
+  }, notificationsSupported);
 
   useEffect(() => {
     if (isOpen) panelRef.current?.querySelector("button")?.focus();
@@ -134,6 +154,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
                     setIsSoundsOpen(true);
                     setIsOpen(false);
                   }}
+                  title={hotkeyHint("Sounds", soundsCombo)}
                   className={SUB_ITEM}
                 >
                   <Volume2 className="w-4 h-4" />
