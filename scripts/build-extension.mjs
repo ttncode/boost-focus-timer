@@ -79,8 +79,9 @@ function writeManifest() {
     version,
     description,
     icons,
-    // notifications + alarms: the background worker announces a session's end even with the popup closed.
-    permissions: ["notifications", "alarms"],
+    // notifications + alarms: the background worker announces a session's end even with the popup closed;
+    // storage: it keeps that notification's text in chrome.storage.session until the alarm fires.
+    permissions: ["notifications", "alarms", "storage"],
     action: { default_title: "Boost Focus Timer", default_icon: icons, default_popup: "popup.html" },
     background: { service_worker: "background.js" },
     // Unassigned by default; users pick a key at chrome://extensions/shortcuts.
