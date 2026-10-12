@@ -1,6 +1,6 @@
 {
   "name": "boost-focus-timer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A calm focus timer with to-dos, habits, goals and session history. Runs in the browser or as a browser extension; all data stays local.",
   "author": "ttncode",
