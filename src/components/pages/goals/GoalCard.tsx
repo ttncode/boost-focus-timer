@@ -167,6 +167,7 @@ export function GoalCard(props: GoalCardProps) {
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

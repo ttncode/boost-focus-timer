@@ -56,6 +56,8 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isSoundsOpen, setIsSoundsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   // In the 400x600 popup a floating bottom-left button would cover the timer controls,
   // so the menu moves into the top bar and opens downward.
@@ -64,6 +66,10 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const menuCombo = useHotkeyLabel("nav.menu");
   const fullPageCombo = useHotkeyLabel("app.fullPage");
   useHotkey("app.fullPage", () => void openFullPage(), isPopup);
+
+  useEffect(() => {
+    if (isOpen) panelRef.current?.querySelector("button")?.focus();
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -92,7 +98,15 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
             isPopup ? "top-full right-0 mt-2" : "bottom-full left-0 mb-2"
           }`}
         >
-          <div className="py-2 max-h-[70vh] overflow-y-auto force-scrollbar">
+          <div
+            ref={panelRef}
+            className="py-2 max-h-[70vh] overflow-y-auto force-scrollbar"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              setIsOpen(false);
+              toggleRef.current?.focus();
+            }}
+          >
             {isPopup ? (
               <button onClick={() => void openFullPage()} className={TOP_ITEM}>
                 <Expand className="w-5 h-5" />
@@ -132,6 +146,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
         </div>
       ) : null}
       <button
+        ref={toggleRef}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Menu"
         title={menuCombo ? `Menu (${menuCombo})` : "Menu"}

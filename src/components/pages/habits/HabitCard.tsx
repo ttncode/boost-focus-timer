@@ -48,7 +48,7 @@ function EditForm({ habit, onSave, onCancel }: { habit: Habit; onSave(edit: Habi
     <div className="mb-4 space-y-4">
       <div>
         <FieldLabel>Habit Name</FieldLabel>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={FIELD_INPUT} />
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus className={FIELD_INPUT} />
       </div>
       <div>
         <FieldLabel>Description (Optional)</FieldLabel>

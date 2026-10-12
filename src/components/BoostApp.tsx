@@ -77,7 +77,11 @@ function AppShell() {
   const goBack = () => setTab(previousTab);
 
   useNavigationHotkeys(navigateFromCurrent);
-  useHotkey("app.displayName", () => setIsEditingName(true));
+  const openNameEditor = () => {
+    setNewName(displayName);
+    setIsEditingName(true);
+  };
+  useHotkey("app.displayName", openNameEditor);
 
   const saveName = () => {
     const trimmed = newName.trim();
@@ -156,6 +160,8 @@ function AppShell() {
                 type="text"
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
                 placeholder="Enter display name"
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
                 onKeyDown={(event) => {
@@ -215,7 +221,7 @@ function AppShell() {
         <TopBar
           displayName={displayName}
           displayTime={formatTodayMinutes(todayMinutes)}
-          onEditDisplayName={() => setIsEditingName(true)}
+          onEditDisplayName={openNameEditor}
           onOpenHistory={() => setTab("history")}
         />
         <BottomNav activeTab={tab} onTabChange={setTab} />
