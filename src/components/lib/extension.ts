@@ -26,15 +26,17 @@ export const isExtensionPage = (): boolean => runtime() !== null;
 export const isPopupView = (): boolean =>
   typeof document !== "undefined" && document.documentElement.dataset.view === "popup";
 
-function send(message: BackgroundMessage): void {
-  runtime()
-    ?.sendMessage(message)
-    .catch((error: unknown) => console.error(`Background message "${message.type}" failed:`, error));
+async function send(message: BackgroundMessage): Promise<void> {
+  try {
+    await runtime()?.sendMessage(message);
+  } catch (error) {
+    console.error(`Background message "${message.type}" failed:`, error);
+  }
 }
 
-/** Opens (or focuses) the full-page app tab and closes the popup. */
-export function openFullPage(): void {
-  send({ type: "open-app" });
+/** Opens (or focuses) the full-page app tab, then closes the popup once the request has been delivered. */
+export async function openFullPage(): Promise<void> {
+  await send({ type: "open-app" });
   if (isPopupView()) window.close();
 }
 
@@ -58,13 +60,13 @@ export function trackRunningTimer(timer: RunningTimer): void {
     timer.kind === "focus"
       ? { title: "Focus session complete", body: `${timer.goal.trim() || "Nice work"} · time for a break.` }
       : { title: "Break is over", body: "Ready for the next focus session?" };
-  send({ type: "schedule-end", at: timer.endAt, ...notification });
+  void send({ type: "schedule-end", at: timer.endAt, ...notification });
 }
 
 export function clearRunningTimer(): void {
   if (!isExtensionPage() || localStorage.getItem(RUNNING_TIMER_KEY) === null) return;
   localStorage.removeItem(RUNNING_TIMER_KEY);
-  send({ type: "cancel-end" });
+  void send({ type: "cancel-end" });
 }
 
 export function readRunningTimer(): RunningTimer | null {

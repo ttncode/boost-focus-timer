@@ -20,7 +20,7 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
   const historyCombo = useHotkeyLabel("nav.history");
   const fullPageCombo = useHotkeyLabel("app.fullPage");
   const [isPopup] = useState(isPopupView);
-  useHotkey("app.fullPage", openFullPage, isPopup);
+  useHotkey("app.fullPage", () => void openFullPage(), isPopup);
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -65,12 +65,12 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
       <div className="fixed z-40 flex items-center gap-3" style={{ top: SAFE_TOP, right: isPopup ? "2.75rem" : "1rem" }}>
         {isPopup ? (
           <button
-            onClick={openFullPage}
+            onClick={() => void openFullPage()}
             aria-label="Open full page"
             title={fullPageCombo ? `Open full page (${fullPageCombo})` : "Open full page"}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="-m-1.5 p-1.5 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <Maximize2 className="w-4 h-4" />
           </button>
         ) : null}
         <button
