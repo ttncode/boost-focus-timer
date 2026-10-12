@@ -112,15 +112,22 @@ function TagSelector({
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const ref = useOutsideDismiss(isOpen, () => {
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const close = () => {
     setIsOpen(false);
     setIsCreating(false);
-  });
+  };
+  const ref = useOutsideDismiss(isOpen, close);
   const addTagCombo = useHotkeyLabel("timer.addTag");
   // The Tags row stays mounted but hidden below the `wide` breakpoint.
   useHotkey("timer.addTag", () => {
     if (ref.current?.getClientRects().length) setIsOpen(true);
   }, isActive);
+
+  // Opening (by click or Alt+Shift+T) puts focus on the first action so the keyboard can carry on.
+  useEffect(() => {
+    if (isOpen && !isCreating) createButtonRef.current?.focus();
+  }, [isOpen, isCreating]);
 
   useEffect(() => {
     if (isOpen) databaseService.getTags().then(setAllTags).catch((error: unknown) => console.error("Failed to load tags:", error));
@@ -170,7 +177,12 @@ function TagSelector({
         ) : null}
       </div>
       {isOpen ? (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+        <div
+          className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !isCreating) close();
+          }}
+        >
           <div className="p-2">
             {isCreating ? (
               <NewTagForm onCreate={create} onCancel={() => setIsCreating(false)} />
@@ -178,6 +190,7 @@ function TagSelector({
               <>
                 <div className="mb-2 flex gap-1">
                   <button
+                    ref={createButtonRef}
                     onClick={() => setIsCreating(true)}
                     className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded transition-colors"
                   >

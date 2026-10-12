@@ -592,6 +592,7 @@ export function HistoryPage({ userId }: { userId: string }) {
                                     type="text"
                                     value={editGoal}
                                     onChange={(e) => setEditGoal(e.target.value)}
+                                    autoFocus
                                     className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
                                     placeholder="Session title"
                                   />
