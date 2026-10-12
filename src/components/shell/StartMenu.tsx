@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
-import { Bell, ChevronDown, CircleUser, Maximize2, Menu, Settings, Tag, Volume2 } from "../icons";
+import { Bell, ChevronDown, CircleUser, Expand, Menu, Settings, Tag, Volume2 } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { isPopupView, openFullPage } from "../lib/extension";
@@ -63,6 +63,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   useHotkey("nav.menu", () => setIsOpen((open) => !open));
   const menuCombo = useHotkeyLabel("nav.menu");
   const fullPageCombo = useHotkeyLabel("app.fullPage");
+  useHotkey("app.fullPage", () => void openFullPage(), isPopup);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -94,7 +95,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
           <div className="py-2 max-h-[70vh] overflow-y-auto force-scrollbar">
             {isPopup ? (
               <button onClick={() => void openFullPage()} className={TOP_ITEM}>
-                <Maximize2 className="w-5 h-5" />
+                <Expand className="w-5 h-5" />
                 <span className="flex-1">Open full page</span>
                 {fullPageCombo ? <span className="text-xs text-gray-500 font-mono">{fullPageCombo}</span> : null}
               </button>
