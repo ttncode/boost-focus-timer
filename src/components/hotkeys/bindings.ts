@@ -32,6 +32,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   { id: "boost.attach", group: "Lists", label: "Attach media to post", defaultCombo: "Alt+U" },
 
   { id: "app.displayName", group: "App", label: "Edit display name", defaultCombo: "Alt+Shift+N" },
+  { id: "app.fullPage", group: "App", label: "Open full page (extension popup)", defaultCombo: "Alt+Enter" },
   { id: "app.shortcuts", group: "App", label: "Show or hide this list", defaultCombo: "Ctrl+/" },
 ];
 

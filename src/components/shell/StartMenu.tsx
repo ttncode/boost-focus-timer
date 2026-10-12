@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
-import { Bell, ChevronDown, CircleUser, Menu, Settings, Tag, Volume2 } from "../icons";
+import { Bell, ChevronDown, CircleUser, Expand, Menu, Settings, Tag, Volume2 } from "../icons";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
+import { isPopupView, openFullPage } from "../lib/extension";
 import { SoundsPanel } from "./SoundsPanel";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
 import { useDialog } from "../dialogs/DialogProvider";
@@ -56,8 +57,13 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   const [isSoundsOpen, setIsSoundsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  // In the 400x600 popup a floating bottom-left button would cover the timer controls,
+  // so the menu moves into the top bar and opens downward.
+  const [isPopup] = useState(isPopupView);
   useHotkey("nav.menu", () => setIsOpen((open) => !open));
   const menuCombo = useHotkeyLabel("nav.menu");
+  const fullPageCombo = useHotkeyLabel("app.fullPage");
+  useHotkey("app.fullPage", () => void openFullPage(), isPopup);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,12 +80,26 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   };
 
   const offset = isMobile ? ` + ${MOBILE_NAV_OFFSET}` : "";
+  const position = isPopup
+    ? { top: "max(env(safe-area-inset-top), 1rem)", right: "1rem" }
+    : { bottom: `calc(1rem${offset} + env(safe-area-inset-bottom, 0px))`, left: "1rem" };
 
   return (
-    <div className="fixed left-4 z-40" style={{ bottom: `calc(1rem${offset} + env(safe-area-inset-bottom, 0px))` }} ref={menuRef}>
+    <div className="fixed z-40" style={position} ref={menuRef}>
       {isOpen ? (
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[70vh] overflow-hidden">
+        <div
+          className={`absolute w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[70vh] overflow-hidden ${
+            isPopup ? "top-full right-0 mt-2" : "bottom-full left-0 mb-2"
+          }`}
+        >
           <div className="py-2 max-h-[70vh] overflow-y-auto force-scrollbar">
+            {isPopup ? (
+              <button onClick={() => void openFullPage()} className={TOP_ITEM}>
+                <Expand className="w-5 h-5" />
+                <span className="flex-1">Open full page</span>
+                {fullPageCombo ? <span className="text-xs text-gray-500 font-mono">{fullPageCombo}</span> : null}
+              </button>
+            ) : null}
             <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`${TOP_ITEM} justify-between`}>
               <div className="flex items-center gap-3">
                 <Settings className="w-5 h-5" />
@@ -116,9 +136,13 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
         aria-label="Menu"
         title={menuCombo ? `Menu (${menuCombo})` : "Menu"}
         aria-expanded={isOpen}
-        className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg border border-gray-700 shadow-lg transition-all flex items-center gap-2"
+        className={
+          isPopup
+            ? "flex items-center text-gray-400 hover:text-white transition-colors"
+            : "bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg border border-gray-700 shadow-lg transition-all flex items-center gap-2"
+        }
       >
-        <Menu className="w-5 h-5" />
+        <Menu className={isPopup ? "w-4 h-4" : "w-5 h-5"} />
       </button>
       {isSoundsOpen ? <SoundsPanel onClose={() => setIsSoundsOpen(false)} /> : null}
     </div>

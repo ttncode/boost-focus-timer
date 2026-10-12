@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import { BarChart3, ChevronDown, Pencil, User } from "../icons";
+import { isPopupView } from "../lib/extension";
 
 const SAFE_TOP = "max(env(safe-area-inset-top), 1rem)";
 
@@ -17,6 +18,7 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const historyCombo = useHotkeyLabel("nav.history");
+  const [isPopup] = useState(isPopupView);
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -57,7 +59,8 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
           </div>
         )}
       </div>
-      <div className="fixed z-40" style={{ top: SAFE_TOP, right: "1rem" }}>
+      {/* In the popup the menu button takes the top-right corner (see StartMenu). */}
+      <div className="fixed z-40 flex items-center gap-3" style={{ top: SAFE_TOP, right: isPopup ? "2.75rem" : "1rem" }}>
         <button
           onClick={onOpenHistory}
           title={historyCombo ? `Focus summary (${historyCombo})` : "Focus summary"}
