@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useHotkeyLabel } from "../hotkeys/HotkeysProvider";
-import { BarChart3, ChevronDown, Pencil, User } from "../icons";
+import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
+import { BarChart3, ChevronDown, Maximize2, Pencil, User } from "../icons";
+import { isPopupView, openFullPage } from "../lib/extension";
 
 const SAFE_TOP = "max(env(safe-area-inset-top), 1rem)";
 
@@ -17,6 +18,9 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const historyCombo = useHotkeyLabel("nav.history");
+  const fullPageCombo = useHotkeyLabel("app.fullPage");
+  const [isPopup] = useState(isPopupView);
+  useHotkey("app.fullPage", openFullPage, isPopup);
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -57,7 +61,18 @@ export function TopBar({ displayName, displayTime, onEditDisplayName, onOpenHist
           </div>
         )}
       </div>
-      <div className="fixed z-40" style={{ top: SAFE_TOP, right: "1rem" }}>
+      {/* In the popup the menu button takes the top-right corner (see StartMenu). */}
+      <div className="fixed z-40 flex items-center gap-3" style={{ top: SAFE_TOP, right: isPopup ? "2.75rem" : "1rem" }}>
+        {isPopup ? (
+          <button
+            onClick={openFullPage}
+            aria-label="Open full page"
+            title={fullPageCombo ? `Open full page (${fullPageCombo})` : "Open full page"}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+        ) : null}
         <button
           onClick={onOpenHistory}
           title={historyCombo ? `Focus summary (${historyCombo})` : "Focus summary"}

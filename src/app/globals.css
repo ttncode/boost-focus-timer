@@ -6,6 +6,8 @@
  * Classes v4 dropped (bg-opacity-*, flex-shrink-*, ...) must be rewritten in markup.
  */
 @custom-variant wide (@media (min-width: 820px));
+/* The extension's toolbar popup: popup.html carries data-view="popup" (see scripts/build-extension.mjs). */
+@custom-variant popup (&:where([data-view="popup"] *));
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
@@ -257,6 +259,16 @@
 
   body {
     background-color: #111827;
+  }
+
+  /*
+   * Chrome caps extension popups at 800x600 and sizes them to the document. 400 wide matches the
+   * phone layout the app was designed at; 600 is the tallest Chrome allows.
+   */
+  html[data-view="popup"],
+  html[data-view="popup"] body {
+    width: 400px;
+    height: 600px;
   }
 }
 

@@ -59,10 +59,10 @@ This writes an unpacked extension to `dist/extension/` and a zip to `dist/boost-
 
 1. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
 2. Click **Load unpacked** and select `dist/extension`.
-3. Click the toolbar icon to open the timer in a tab. Clicking again focuses the existing tab instead of opening a second timer.
+3. Click the toolbar icon to open the timer in a **400 × 600 popup** (a compact layout of the same app). Use the ⤢ button in its top bar, or <kbd>Alt</kbd>+<kbd>Enter</kbd>, to open the **full page** in a tab; an existing tab is focused instead of opening a second one.
 4. Optional: assign a global shortcut for **Open Boost Focus Timer** at `chrome://extensions/shortcuts`.
 
-Extension data lives in the extension's own storage, separate from the web app's. Firefox is not supported yet.
+A session keeps running when the popup closes: reopening it continues the countdown, and the extension shows the "Focus session complete" / "Break is over" notification even while the popup is closed (the end chime only plays if the app is open). Popup and full page share the same data, which lives in the extension's own storage, separate from the web app's. Firefox is not supported yet.
 
 ## Keyboard shortcuts
 

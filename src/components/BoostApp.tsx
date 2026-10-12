@@ -7,6 +7,7 @@ import { FocusTimer } from "./focus/FocusTimer";
 import { askForNotificationsOnFirstOpen } from "./focus/notifications";
 import { HotkeysProvider, useHotkey, useHotkeyMap } from "./hotkeys/HotkeysProvider";
 import { databaseService } from "./lib/database-service";
+import { isPopupView } from "./lib/extension";
 import { getLocalUserId } from "./lib/local-db";
 import { getDisplayName, saveDisplayName } from "./lib/profile";
 import { BottomNav } from "./shell/BottomNav";
@@ -55,6 +56,7 @@ function AppShell() {
   const timerRef = useRef<FocusTimerHandle>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const isShortViewport = useMediaQuery(SHORT_VIEWPORT_QUERY);
+  const [isPopup] = useState(isPopupView);
 
   useEffect(() => askForNotificationsOnFirstOpen(), []);
 
@@ -103,9 +105,13 @@ function AppShell() {
     setPendingTodo(null);
   };
 
-  const navHeight = isMobile ? "8rem" : MOBILE_NAV_OFFSET;
-  const paddingBottom =
-    tab === "timer" && !isShortViewport && !isMobile ? "0.25rem" : `calc(1rem + ${navHeight} + env(safe-area-inset-bottom, 0px))`;
+  // The popup keeps the bottom nav but has no phone home-indicator area, so it needs the desktop clearance.
+  const navHeight = isMobile && !isPopup ? "8rem" : MOBILE_NAV_OFFSET;
+  const paddingBottom = isPopup
+    ? navHeight
+    : tab === "timer" && !isShortViewport && !isMobile
+      ? "0.25rem"
+      : `calc(1rem + ${navHeight} + env(safe-area-inset-bottom, 0px))`;
 
   return (
     <>
@@ -117,7 +123,7 @@ function AppShell() {
           className={`bg-black wide:border wide:border-gray-800 wide:rounded-3xl wide:shadow-2xl p-4 sm:p-8 w-full max-w-2xl mx-auto ${
             tab === "timer" ? "mt-auto" : "wide:mt-auto"
           }`}
-          style={{ paddingTop: isMobile ? "4rem" : undefined }}
+          style={{ paddingTop: isPopup ? "3rem" : isMobile ? "4rem" : undefined }}
         >
           {/* Kept mounted while hidden so a running session survives tab switches. */}
           <div className={tab === "timer" ? "" : "hidden"}>

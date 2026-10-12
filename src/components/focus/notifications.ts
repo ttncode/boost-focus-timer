@@ -1,41 +1,18 @@
 /*
- * The browser permission is the only switch: the app asks Chrome directly on first open.
- * Inside the extension the manifest grants it, so there is nothing to ask.
+ * The browser permission is the only switch: the app asks the browser directly on first open.
+ * Inside the extension the manifest grants it and the background worker shows the
+ * end-of-session notifications (see lib/extension.ts), so pages there never notify themselves.
  */
+import { isExtensionPage } from "../lib/extension";
 
-const ICON_PATH = "icons/icon-128.png";
-/*
- * Each notification gets a fresh id and the previous one is closed first. Reusing a tag/id
- * would make the browser swap the text into the old notification silently, without a pop-up.
- */
-const NOTIFICATION_ID_PREFIX = "boost-focus-timer";
-
-/** The slice of the extension `chrome` API used here; the web build never has it. */
-interface ExtensionApi {
-  runtime: { id?: string; getURL(path: string): string };
-  notifications: {
-    create(id: string, options: { type: "basic"; iconUrl: string; title: string; message: string; silent?: boolean }): Promise<string>;
-    clear(id: string): Promise<boolean>;
-    onClicked: { addListener(listener: (id: string) => void): void };
-  };
-  tabs: {
-    getCurrent(): Promise<{ id?: number; windowId?: number } | undefined>;
-    update(tabId: number, properties: { active: boolean }): Promise<unknown>;
-  };
-  windows: { update(windowId: number, properties: { focused: boolean }): Promise<unknown> };
-}
-
-function extensionApi(): ExtensionApi | null {
-  const candidate = (globalThis as { chrome?: Partial<ExtensionApi> }).chrome;
-  return candidate?.runtime?.id && candidate.notifications ? (candidate as ExtensionApi) : null;
-}
+const ICON_PATH = "/icons/icon-128.png";
 
 const hasWebNotifications = (): boolean => typeof window !== "undefined" && "Notification" in window;
 
 export type NotificationStatus = "unsupported" | NotificationPermission;
 
 export function notificationStatus(): NotificationStatus {
-  if (extensionApi()) return "granted";
+  if (isExtensionPage()) return "granted";
   return hasWebNotifications() ? Notification.permission : "unsupported";
 }
 
@@ -82,37 +59,15 @@ export function askForNotificationsOnFirstOpen(): () => void {
   };
 }
 
-let clickHandlerInstalled = false;
-let previousExtensionId: string | null = null;
-let previousWebNotification: Notification | null = null;
-
-/** Clicking an extension notification brings the timer tab and its window to the front. */
-function installExtensionClickHandler(api: ExtensionApi): void {
-  if (clickHandlerInstalled) return;
-  clickHandlerInstalled = true;
-  api.notifications.onClicked.addListener(async () => {
-    const tab = await api.tabs.getCurrent();
-    if (tab?.id !== undefined) await api.tabs.update(tab.id, { active: true });
-    if (tab?.windowId !== undefined) await api.windows.update(tab.windowId, { focused: true });
-  });
-}
+// The previous notification is closed first: a reused tag would swap the text in silently, without a pop-up.
+let previousNotification: Notification | null = null;
 
 function show(title: string, body: string): void {
-  const api = extensionApi();
   try {
-    if (api) {
-      installExtensionClickHandler(api);
-      if (previousExtensionId) void api.notifications.clear(previousExtensionId);
-      const id = `${NOTIFICATION_ID_PREFIX}-${Date.now()}`;
-      previousExtensionId = id;
-      const options = { type: "basic" as const, iconUrl: api.runtime.getURL(ICON_PATH), title, message: body, silent: true };
-      api.notifications.create(id, options).catch((error: unknown) => console.error("Could not show notification:", error));
-      return;
-    }
-    previousWebNotification?.close();
+    previousNotification?.close();
     // Silent because the end bell already plays; the notification is the visual cue.
-    const notification = new Notification(title, { body, icon: `/${ICON_PATH}`, silent: true });
-    previousWebNotification = notification;
+    const notification = new Notification(title, { body, icon: ICON_PATH, silent: true });
+    previousNotification = notification;
     notification.onclick = () => {
       window.focus();
       notification.close();
@@ -122,7 +77,7 @@ function show(title: string, body: string): void {
   }
 }
 
-/** Shows a notification when the browser allows it. */
+/** Shows a notification in the web app when the browser allows it; the extension's background worker handles its own. */
 export function notify(title: string, body: string): void {
-  if (notificationStatus() === "granted") show(title, body);
+  if (!isExtensionPage() && notificationStatus() === "granted") show(title, body);
 }

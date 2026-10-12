@@ -63,6 +63,13 @@ function externalizeInlineScripts() {
   }
 }
 
+/** The toolbar popup is the same page, marked so the app switches to its compact 400x600 layout. */
+function writePopupPage() {
+  const html = readFileSync(join(EXTENSION_DIR, "index.html"), "utf8");
+  if (!html.includes("<html")) throw new Error("index.html has no <html> tag");
+  writeFileSync(join(EXTENSION_DIR, "popup.html"), html.replace(/<html(\s|>)/, '<html data-view="popup"$1'));
+}
+
 function writeManifest() {
   const icons = Object.fromEntries([16, 32, 48, 128].map((size) => [String(size), `icons/icon-${size}.png`]));
   const manifest = {
@@ -72,9 +79,9 @@ function writeManifest() {
     version,
     description,
     icons,
-    // Lets the timer page show session-complete notifications without a prompt.
-    permissions: ["notifications"],
-    action: { default_title: "Open Boost Focus Timer", default_icon: icons },
+    // notifications + alarms: the background worker announces a session's end even with the popup closed.
+    permissions: ["notifications", "alarms"],
+    action: { default_title: "Boost Focus Timer", default_icon: icons, default_popup: "popup.html" },
     background: { service_worker: "background.js" },
     // Unassigned by default; users pick a key at chrome://extensions/shortcuts.
     commands: { _execute_action: { description: "Open Boost Focus Timer" } },
@@ -98,6 +105,7 @@ function zipExtension() {
 exportStaticSite();
 renameReservedPaths();
 externalizeInlineScripts();
+writePopupPage();
 writeManifest();
 const zipPath = zipExtension();
 if (!existsSync(join(EXTENSION_DIR, "index.html"))) throw new Error("Static export produced no index.html");

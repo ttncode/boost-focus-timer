@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, Clock, Pause, Play, RotateCcw, Target, X } from "../icons";
 import { databaseService, type FocusSession, type Tag } from "../lib/database-service";
+import { clearRunningTimer, readRunningTimer, trackRunningTimer, type RunningTimer } from "../lib/extension";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
 import type { FocusTimerHandle, FocusTimerProps } from "../types";
 import { AnimationPicker } from "./AnimationPicker";
@@ -202,9 +203,48 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     databaseService.updateUserSettings({ auto_shuffle_animations: next }).catch(logError("Failed to save user settings:"));
   };
 
+  /**
+   * Extension only: the popup closes whenever it loses focus, so a countdown that was running when it
+   * closed keeps running (or has finished) instead of coming back paused.
+   */
+  const continueRunningTimer = async (running: RunningTimer, latest: FocusSession): Promise<boolean> => {
+    if (latest.id !== running.sessionId || latest.completed) return false;
+    const remaining = running.endAt - Date.now();
+    const startedAt = running.endAt - running.totalMs;
+    if (running.kind === "focus") {
+      setGoal(latest.goal);
+      setInputMinutes(String(latest.planned_duration_minutes));
+      setHasStarted(true);
+      setFocusTotalMs(running.totalMs);
+      if (remaining > 0) {
+        setSession(latest);
+        setFocusStart(startedAt);
+        setFocus({ ...IDLE, ...splitMs(remaining), isRunning: true });
+      } else {
+        setSession(await databaseService.updateFocusSession(latest.id, { end_time: new Date(running.endAt).toISOString(), completed: true }));
+        setFocus({ ...IDLE, isCompleted: true });
+      }
+      return true;
+    }
+    if (remaining > 0) {
+      setBreakSession(latest);
+      setIsOnBreak(true);
+      setHasStartedBreak(true);
+      setBreakTotalMs(running.totalMs);
+      setBreakStart(startedAt);
+      setBreakTimer({ ...IDLE, ...splitMs(remaining), isRunning: true });
+    } else {
+      await databaseService.updateFocusSession(latest.id, { end_time: new Date(running.endAt).toISOString(), completed: true });
+      setBreakTimer({ ...IDLE, isCompleted: true });
+    }
+    return true;
+  };
+
   useEffect(() => {
     const restore = async () => {
       const [latest] = await databaseService.getUserFocusSessions(1);
+      const running = readRunningTimer();
+      if (running && latest && (await continueRunningTimer(running, latest))) return;
       if (!latest || latest.completed || Date.now() - new Date(latest.created_at).getTime() >= RESTORE_WINDOW_MS) return;
       const restored = await restoreSession(latest);
       setSession(latest);
@@ -219,6 +259,18 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
       .catch(logError("Failed to load active session:"))
       .finally(() => setIsInitialized(true));
   }, []);
+
+  // Keep the extension's running-timer record (and its background alarm) in step with the countdowns.
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (focus.isRunning && focusStart !== null && session) {
+      trackRunningTimer({ kind: "focus", sessionId: session.id, endAt: focusStart + focusTotalMs, totalMs: focusTotalMs, goal });
+    } else if (breakTimer.isRunning && breakStart !== null && breakSession) {
+      trackRunningTimer({ kind: "break", sessionId: breakSession.id, endAt: breakStart + breakTotalMs, totalMs: breakTotalMs, goal: "" });
+    } else {
+      clearRunningTimer();
+    }
+  }, [isInitialized, focus.isRunning, focusStart, focusTotalMs, session, goal, breakTimer.isRunning, breakStart, breakTotalMs, breakSession]);
 
   const resetAll = () => {
     setFocus(IDLE);
@@ -542,7 +594,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
           type={selectedAnimation}
           frame={currentFrame(selectedAnimation, frameState)}
           label={`${metaOf(selectedAnimation).title} timer`}
-          className="w-64 h-64 sm:w-96 sm:h-96 mx-auto"
+          className="w-64 h-64 sm:w-96 sm:h-96 popup:w-40 popup:h-40 mx-auto"
         />
       </div>
 

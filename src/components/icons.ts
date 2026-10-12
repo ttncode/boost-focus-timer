@@ -30,6 +30,7 @@ export const ListTodo = createIcon("ListTodo", [["rect",{x:"3",y:"5",width:"6",h
 export const List = createIcon("List", [["line",{x1:"8",x2:"21",y1:"6",y2:"6"}],["line",{x1:"8",x2:"21",y1:"12",y2:"12"}],["line",{x1:"8",x2:"21",y1:"18",y2:"18"}],["line",{x1:"3",x2:"3.01",y1:"6",y2:"6"}],["line",{x1:"3",x2:"3.01",y1:"12",y2:"12"}],["line",{x1:"3",x2:"3.01",y1:"18",y2:"18"}]]);
 export const Loader2 = createIcon("Loader2", [["path",{d:"M21 12a9 9 0 1 1-6.219-8.56"}]]);
 export const Lock = createIcon("Lock", [["rect",{width:"18",height:"11",x:"3",y:"11",rx:"2",ry:"2"}],["path",{d:"M7 11V7a5 5 0 0 1 10 0v4"}]]);
+export const Maximize2 = createIcon("Maximize2", [["polyline",{points:"15 3 21 3 21 9"}],["polyline",{points:"9 21 3 21 3 15"}],["line",{x1:"21",x2:"14",y1:"3",y2:"10"}],["line",{x1:"3",x2:"10",y1:"21",y2:"14"}]]);
 export const Menu = createIcon("Menu", [["line",{x1:"4",x2:"20",y1:"12",y2:"12"}],["line",{x1:"4",x2:"20",y1:"6",y2:"6"}],["line",{x1:"4",x2:"20",y1:"18",y2:"18"}]]);
 export const MessageCircle = createIcon("MessageCircle", [["path",{d:"M7.9 20A9 9 0 1 0 4 16.1L2 22Z"}]]);
 export const MessageSquare = createIcon("MessageSquare", [["path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"}]]);
