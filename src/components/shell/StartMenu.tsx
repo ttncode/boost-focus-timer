@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { notificationStatus, requestNotificationPermission, type NotificationStatus } from "../focus/notifications";
-import { Bell, ChevronDown, CircleUser, Expand, Menu, Settings, Tag, Volume2 } from "../icons";
+import { Bell, ChevronDown, CircleUser, Expand, Keyboard, Menu, Settings, Tag, Volume2 } from "../icons";
 import { hotkeyHint } from "../focus/GoalForm";
-import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
+import { useHotkey, useHotkeyLabel, useHotkeys } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
 import { isPopupView, openFullPage } from "../lib/extension";
 import { SoundsPanel } from "./SoundsPanel";
@@ -80,6 +80,8 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
     setIsOpen(false);
   });
   const soundsCombo = useHotkeyLabel("app.sounds");
+  const { openPanel: openShortcuts } = useHotkeys();
+  const shortcutsCombo = useHotkeyLabel("app.shortcuts");
   const [notificationsSupported] = useState(() => notificationStatus() !== "unsupported");
   // Closing the menu keeps its Notifications item from showing a status the hotkey just changed.
   useHotkey("app.notifications", () => {
@@ -159,6 +161,17 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
                 >
                   <Volume2 className="w-4 h-4" />
                   <span>Sounds</span>
+                </button>
+                <button
+                  onClick={() => {
+                    openShortcuts();
+                    setIsOpen(false);
+                  }}
+                  title={hotkeyHint("Keyboard Shortcuts", shortcutsCombo)}
+                  className={SUB_ITEM}
+                >
+                  <Keyboard className="w-4 h-4" />
+                  <span>Keyboard Shortcuts</span>
                 </button>
                 <NotificationsItem />
               </div>
