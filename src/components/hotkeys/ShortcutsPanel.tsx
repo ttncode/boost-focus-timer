@@ -19,10 +19,11 @@ function isExtensionPage(): boolean {
 export function ShortcutsPanel({ actions, onClose }: { actions: readonly HotkeyAction[]; onClose(): void }) {
   const { bindings, rebind, resetAll, setCapturing } = useHotkeys();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const doneRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Focus lands on the dialog itself so no control shows a ring and Enter cannot close it by accident.
   useEffect(() => {
-    doneRef.current?.focus();
+    dialogRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -62,17 +63,18 @@ export function ShortcutsPanel({ actions, onClose }: { actions: readonly HotkeyA
       role="presentation"
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcuts-title"
-        className="w-full max-w-md max-h-[85vh] flex flex-col bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden motion-safe:animate-[bft-sheet-in_200ms_ease-out]"
+        className="outline-none w-full max-w-md max-h-[85vh] flex flex-col bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden motion-safe:animate-[bft-sheet-in_200ms_ease-out]"
       >
         <div className="relative flex items-center justify-center px-5 pt-5 pb-2">
           <h2 id="shortcuts-title" className="text-base font-semibold text-white">
             Keyboard Shortcuts
           </h2>
           <button
-            ref={doneRef}
             onClick={onClose}
             className="absolute right-4 rounded-md px-1.5 py-0.5 text-sm font-semibold text-blue-400 hover:text-blue-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
           >

@@ -1,7 +1,7 @@
 /*
- * Browser-extension glue. In the extension the app runs in a toolbar popup that is destroyed
- * whenever it loses focus, so a running timer is recorded here and the background worker
- * raises the end-of-session notification. Every function is a no-op in the web app.
+ * Browser-extension glue. In the extension the app runs in a popup window the user may close
+ * at any time, so a running timer is recorded here and the background worker raises the
+ * end-of-session notification. Every function is a no-op in the web app.
  */
 
 const RUNNING_TIMER_KEY = "bft:runningTimer";

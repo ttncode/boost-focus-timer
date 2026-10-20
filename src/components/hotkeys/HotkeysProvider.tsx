@@ -20,6 +20,7 @@ interface HotkeysContextValue {
   rebind(actionId: string, combo: string | null): void;
   resetAll(): void;
   setCapturing(isCapturing: boolean): void;
+  openPanel(): void;
 }
 
 const HotkeysContext = createContext<HotkeysContextValue | null>(null);
@@ -90,9 +91,11 @@ export function HotkeysProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [bindings]);
 
+  const openPanel = useCallback(() => setIsPanelOpen(true), []);
+
   const value = useMemo(
-    () => ({ bindings, register, rebind, resetAll, setCapturing }),
-    [bindings, register, rebind, resetAll, setCapturing],
+    () => ({ bindings, register, rebind, resetAll, setCapturing, openPanel }),
+    [bindings, register, rebind, resetAll, setCapturing, openPanel],
   );
 
   return (

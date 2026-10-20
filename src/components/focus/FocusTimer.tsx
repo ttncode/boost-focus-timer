@@ -209,7 +209,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   };
 
   /**
-   * Extension only: the popup closes whenever it loses focus, so a countdown that was running when it
+   * Extension only: the popup window can be closed mid-session, so a countdown that was running when it
    * closed keeps running (or has finished) instead of coming back paused.
    */
   const continueRunningTimer = async (running: RunningTimer, latest: FocusSession): Promise<boolean> => {
@@ -301,6 +301,19 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
     document.title = DEFAULT_TITLE;
     resetAll();
     rerollAnimation();
+  };
+
+  // An unfinished session has no end time, so its minutes never reach today's total.
+  const confirmReset = async () => {
+    if (session && !session.completed) {
+      const confirmed = await dialog.confirm("Time focused so far won't count toward today.", {
+        title: "Reset this session?",
+        confirmLabel: "Reset",
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
+    resetTimer();
   };
 
   const completeSession = async () => {
@@ -541,7 +554,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
   useHotkey("timer.shuffle", toggleAutoShuffle, isActive && isIdle);
   useHotkey("timer.nextAnimation", selectNextAnimation, isActive && isIdle);
   const isSessionComplete = !isIdle && !isOnBreak && focus.isCompleted;
-  useHotkey("timer.reset", resetTimer, isActive && !isIdle && !isDirectBreak && !isOnBreak);
+  useHotkey("timer.reset", () => void confirmReset(), isActive && !isIdle && !isDirectBreak && !isOnBreak);
   useHotkey("timer.extend", () => void extendFocus(), isActive && isSessionComplete);
   const toggleCombo = useHotkeyLabel("timer.toggle");
   const endCombo = useHotkeyLabel("timer.end");
@@ -744,7 +757,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
               <Play className="w-5 h-5" />
               Start Break
             </TimerButton>
-            <TimerButton onClick={resetTimer} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_BASE} px-4 py-3 bg-gray-500 hover:bg-gray-600`}>
+            <TimerButton onClick={() => void confirmReset()} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_BASE} px-4 py-3 bg-gray-500 hover:bg-gray-600`}>
               <RotateCcw className="w-5 h-5" />
               Reset
             </TimerButton>
@@ -766,7 +779,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
               <Target className={ICON_SMALL} />
               <span>Done</span>
             </TimerButton>
-            <TimerButton onClick={resetTimer} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_SMALL} bg-gray-500 hover:bg-gray-600`}>
+            <TimerButton onClick={() => void confirmReset()} title={hotkeyHint("Reset", resetCombo)} className={`${BUTTON_SMALL} bg-gray-500 hover:bg-gray-600`}>
               <RotateCcw className={ICON_SMALL} />
               Reset
             </TimerButton>

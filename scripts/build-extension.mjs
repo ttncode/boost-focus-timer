@@ -63,7 +63,7 @@ function externalizeInlineScripts() {
   }
 }
 
-/** The toolbar popup is the same page, marked so the app switches to its compact 400x600 layout. */
+/** The popup window is the same page, marked so the app switches to its compact 400x600 layout. */
 function writePopupPage() {
   const html = readFileSync(join(EXTENSION_DIR, "index.html"), "utf8");
   if (!html.includes("<html")) throw new Error("index.html has no <html> tag");
@@ -82,7 +82,9 @@ function writeManifest() {
     // notifications + alarms: the background worker announces a session's end even with the popup closed;
     // storage: it keeps that notification's text in chrome.storage.session until the alarm fires.
     permissions: ["notifications", "alarms", "storage"],
-    action: { default_title: "Boost Focus Timer", default_icon: icons, default_popup: "popup.html" },
+    // No default_popup: the background worker opens popup.html in its own window, which gets a
+    // taskbar entry with the extension icon and survives losing focus.
+    action: { default_title: "Boost Focus Timer", default_icon: icons },
     background: { service_worker: "background.js" },
     // Unassigned by default; users pick a key at chrome://extensions/shortcuts.
     commands: { _execute_action: { description: "Open Boost Focus Timer" } },
