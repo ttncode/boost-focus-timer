@@ -38,19 +38,20 @@ jobs:
 
       - run: cargo test --manifest-path desktop/Cargo.toml
 
-      # Tauri downloads its NSIS tools with no retry and GitHub sometimes answers 504. Later attempts
-      # only redo the bundling, and the tools stay cached for the publishing step below.
-      - name: Build with retries for the installer tools
+      # Tauri downloads its NSIS tools with no retry and GitHub keeps answering 504, so they are put
+      # where Tauri looks for them first.
+      # shortcut: versions match @tauri-apps/cli 2.12.4; after an upgrade Tauri fetches its own again.
+      - name: Download the installer tools
         shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          for attempt in 1 2 3 4 5 6 7 8; do
-            npx tauri build && exit 0
-            sleep 60
-          done
-          exit 1
+          fetch() { curl -fsSL --retry 30 --retry-all-errors --retry-delay 20 -o "$2" "$1"; }
+          tools="$LOCALAPPDATA/tauri"
+          mkdir -p "$tools"
+          fetch https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.13/nsis-3.13.zip "$RUNNER_TEMP/nsis.zip"
+          unzip -q "$RUNNER_TEMP/nsis.zip" -d "$tools"
+          mv "$tools/nsis-3.13" "$tools/NSIS"
+          mkdir -p "$tools/NSIS/Plugins/x86-unicode/additional"
+          fetch https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll "$tools/NSIS/Plugins/x86-unicode/additional/nsis_tauri_utils.dll"
 
       - uses: tauri-apps/tauri-action@v0
         env:
