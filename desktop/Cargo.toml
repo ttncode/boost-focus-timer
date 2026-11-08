@@ -23,6 +23,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
+serde_json = "1"
 
 # Must match the versions Tauri's WebView2 runtime uses, since with_webview hands over its types.
 [target.'cfg(windows)'.dependencies]
