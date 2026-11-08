@@ -6,7 +6,7 @@ import { Bell, ChevronDown, CircleUser, Expand, Keyboard, Menu, Settings, Tag, V
 import { hotkeyHint } from "../focus/GoalForm";
 import { useHotkey, useHotkeyLabel, useHotkeys } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
-import { isPopupView, openFullPage } from "../lib/extension";
+import { isDesktopApp, isPopupView, openFullPage } from "../lib/extension";
 import { SoundsPanel } from "./SoundsPanel";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
 import { useDialog } from "../dialogs/DialogProvider";
@@ -74,7 +74,9 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   useHotkey("nav.menu", () => setIsOpen((open) => !open));
   const menuCombo = useHotkeyLabel("nav.menu");
   const fullPageCombo = useHotkeyLabel("app.fullPage");
-  useHotkey("app.fullPage", () => void openFullPage(), isPopup);
+  // The desktop app has one compact window and no full page to open.
+  const canOpenFullPage = isPopup && !isDesktopApp();
+  useHotkey("app.fullPage", () => void openFullPage(), canOpenFullPage);
   useHotkey("app.sounds", () => {
     setIsSoundsOpen(true);
     setIsOpen(false);
@@ -129,7 +131,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
               toggleRef.current?.focus();
             }}
           >
-            {isPopup ? (
+            {canOpenFullPage ? (
               <button onClick={() => void openFullPage()} className={TOP_ITEM}>
                 <Expand className="w-5 h-5" />
                 <span className="flex-1">Open full page</span>

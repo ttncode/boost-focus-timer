@@ -11,6 +11,7 @@ import {
   type Bindings,
 } from "./bindings";
 import { ShortcutsPanel } from "./ShortcutsPanel";
+import { isDesktopApp } from "../lib/extension";
 
 type Handler = () => void;
 
@@ -101,7 +102,12 @@ export function HotkeysProvider({ children }: { children: ReactNode }) {
   return (
     <HotkeysContext.Provider value={value}>
       {children}
-      {isPanelOpen ? <ShortcutsPanel actions={HOTKEY_ACTIONS} onClose={() => setIsPanelOpen(false)} /> : null}
+      {isPanelOpen ? (
+        <ShortcutsPanel
+          actions={isDesktopApp() ? HOTKEY_ACTIONS.filter((action) => action.id !== "app.fullPage") : HOTKEY_ACTIONS}
+          onClose={() => setIsPanelOpen(false)}
+        />
+      ) : null}
     </HotkeysContext.Provider>
   );
 }

@@ -1,7 +1,8 @@
 /*
- * Browser-extension glue. In the extension the app runs in a popup window the user may close
- * at any time, so a running timer is recorded here and the background worker raises the
- * end-of-session notification. Every function is a no-op in the web app.
+ * Browser-extension and desktop-app glue. In both, the app runs in a window the user may close
+ * at any time, so a running timer is recorded here and something outside the page (the background
+ * worker, or the desktop shell) raises the end-of-session notification. Every function is a no-op
+ * in the web app.
  */
 
 const RUNNING_TIMER_KEY = "bft:runningTimer";
@@ -10,8 +11,13 @@ interface ExtensionRuntime {
   runtime: { id?: string; sendMessage(message: BackgroundMessage): Promise<unknown> };
 }
 
+interface DesktopShell {
+  core: { invoke(command: string, args: Record<string, unknown>): Promise<unknown> };
+}
+
 export type BackgroundMessage =
   | { type: "open-app" }
+  | { type: "open-url"; url: string }
   | { type: "schedule-end"; at: number; title: string; body: string }
   | { type: "cancel-end" };
 
@@ -20,7 +26,14 @@ function runtime(): ExtensionRuntime["runtime"] | null {
   return candidate?.runtime?.id ? candidate.runtime : null;
 }
 
-export const isExtensionPage = (): boolean => runtime() !== null;
+function desktopShell(): DesktopShell | null {
+  return (globalThis as { __TAURI__?: DesktopShell }).__TAURI__ ?? null;
+}
+
+export const isDesktopApp = (): boolean => desktopShell() !== null;
+
+/** True when something outside the page shows end-of-session notifications. */
+export const hasBackgroundWorker = (): boolean => runtime() !== null || isDesktopApp();
 
 /** The build marks popup.html with `data-view="popup"`; the full-page tab has no marker. */
 export const isPopupView = (): boolean =>
@@ -28,6 +41,12 @@ export const isPopupView = (): boolean =>
 
 async function send(message: BackgroundMessage): Promise<void> {
   try {
+    const desktop = desktopShell();
+    if (desktop) {
+      const { type, ...args } = message;
+      await desktop.core.invoke(type.replace("-", "_"), args);
+      return;
+    }
     await runtime()?.sendMessage(message);
   } catch (error) {
     console.error(`Background message "${message.type}" failed:`, error);
@@ -38,6 +57,13 @@ async function send(message: BackgroundMessage): Promise<void> {
 export async function openFullPage(): Promise<void> {
   await send({ type: "open-app" });
   if (isPopupView()) window.close();
+}
+
+/** The desktop window cannot follow `target="_blank"`, so the default browser opens the link. */
+export function openLinkOnDesktop(event: { preventDefault(): void }, url: string): void {
+  if (!isDesktopApp()) return;
+  event.preventDefault();
+  void send({ type: "open-url", url });
 }
 
 export interface RunningTimer {
@@ -54,7 +80,7 @@ export interface RunningTimer {
  * worker notify at `endAt` even when no app page is open.
  */
 export function trackRunningTimer(timer: RunningTimer): void {
-  if (!isExtensionPage()) return;
+  if (!hasBackgroundWorker()) return;
   localStorage.setItem(RUNNING_TIMER_KEY, JSON.stringify(timer));
   const notification =
     timer.kind === "focus"
@@ -64,13 +90,13 @@ export function trackRunningTimer(timer: RunningTimer): void {
 }
 
 export function clearRunningTimer(): void {
-  if (!isExtensionPage() || localStorage.getItem(RUNNING_TIMER_KEY) === null) return;
+  if (!hasBackgroundWorker() || localStorage.getItem(RUNNING_TIMER_KEY) === null) return;
   localStorage.removeItem(RUNNING_TIMER_KEY);
   void send({ type: "cancel-end" });
 }
 
 export function readRunningTimer(): RunningTimer | null {
-  if (!isExtensionPage()) return null;
+  if (!hasBackgroundWorker()) return null;
   try {
     const stored = localStorage.getItem(RUNNING_TIMER_KEY);
     return stored ? (JSON.parse(stored) as RunningTimer) : null;

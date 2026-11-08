@@ -2,8 +2,9 @@
  * The browser permission is the only switch: the app asks the browser directly on first open.
  * Inside the extension the manifest grants it and the background worker shows the
  * end-of-session notifications (see lib/extension.ts), so pages there never notify themselves.
+ * The desktop app works the same way, with its shell in place of the worker.
  */
-import { isExtensionPage } from "../lib/extension";
+import { hasBackgroundWorker } from "../lib/extension";
 
 const ICON_PATH = "/icons/icon-128.png";
 
@@ -12,7 +13,7 @@ const hasWebNotifications = (): boolean => typeof window !== "undefined" && "Not
 export type NotificationStatus = "unsupported" | NotificationPermission;
 
 export function notificationStatus(): NotificationStatus {
-  if (isExtensionPage()) return "granted";
+  if (hasBackgroundWorker()) return "granted";
   return hasWebNotifications() ? Notification.permission : "unsupported";
 }
 
@@ -79,5 +80,5 @@ function show(title: string, body: string): void {
 
 /** Shows a notification in the web app when the browser allows it; the extension's background worker handles its own. */
 export function notify(title: string, body: string): void {
-  if (!isExtensionPage() && notificationStatus() === "granted") show(title, body);
+  if (!hasBackgroundWorker() && notificationStatus() === "granted") show(title, body);
 }

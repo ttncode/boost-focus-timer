@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Play } from "../icons";
+import { openLinkOnDesktop } from "../lib/extension";
 
 const URL_PATTERN = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
 const YOUTUBE_PATTERN =
@@ -35,7 +36,14 @@ function LinkifiedText({ text }: { text: string }) {
     <p className="text-white whitespace-pre-wrap">
       {text.split(URL_PATTERN).map((part, index) =>
         index % 2 === 1 ? (
-          <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => openLinkOnDesktop(event, part)}
+            className="text-blue-400 hover:underline"
+          >
             {part}
           </a>
         ) : (

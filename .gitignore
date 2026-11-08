@@ -8,6 +8,8 @@ node_modules/
 out/
 build/
 dist/
+desktop/target/
+desktop/gen/
 
 # Environment
 .env

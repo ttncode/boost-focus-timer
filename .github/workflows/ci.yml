@@ -48,3 +48,51 @@ jobs:
           name: boost-focus-timer-extension
           path: dist/*.zip
           if-no-files-found: error
+
+  desktop:
+    # windows-2025 images break WebView2 WebDriver sessions (actions/runner-images#14738).
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:extension
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+
+      - run: cargo test --manifest-path desktop/Cargo.toml
+      - run: cargo clippy --manifest-path desktop/Cargo.toml --all-targets -- -D warnings
+      - run: npx tauri build --no-bundle
+
+      - name: Install tauri-driver and Edge driver
+        shell: pwsh
+        run: |
+          cargo install tauri-driver --locked
+          cargo install --git https://github.com/chippers/msedgedriver-tool
+          & "$HOME\.cargo\bin\msedgedriver-tool.exe"
+
+      - name: End-to-end tests
+        shell: pwsh
+        env:
+          BOOST_APP: ${{ github.workspace }}\desktop\target\release\boost-focus-timer.exe
+        run: |
+          $driver = Start-Process tauri-driver -ArgumentList '--native-driver', "$PWD\msedgedriver.exe" -PassThru
+          $deadline = (Get-Date).AddSeconds(30)
+          while (-not (Test-NetConnection 127.0.0.1 -Port 4444 -InformationLevel Quiet)) {
+            if ((Get-Date) -gt $deadline) { throw "tauri-driver did not start" }
+            Start-Sleep -Seconds 1
+          }
+          try { npm run test:e2e } finally { Stop-Process -Id $driver.Id -ErrorAction SilentlyContinue }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

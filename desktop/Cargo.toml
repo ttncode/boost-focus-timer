@@ -1,0 +1,37 @@
+[package]
+name = "boost-focus-timer"
+# The app's version comes from package.json through tauri.conf.json.
+version = "0.0.0"
+description = "A calm focus timer with to-dos, habits, goals and session history"
+edition = "2021"
+publish = false
+
+[lib]
+name = "boost_focus_timer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "~2.12", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+
+# Must match the versions Tauri's WebView2 runtime uses, since with_webview hands over its types.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
