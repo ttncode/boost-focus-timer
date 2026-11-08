@@ -619,7 +619,7 @@ export const FocusTimer = forwardRef<FocusTimerHandle, FocusTimerProps>(function
           type={selectedAnimation}
           frame={currentFrame(selectedAnimation, frameState)}
           label={`${metaOf(selectedAnimation).title} timer`}
-          className="w-64 h-64 sm:w-96 sm:h-96 popup:w-40 popup:h-40 mx-auto"
+          className="w-64 h-64 sm:w-96 sm:h-96 popup:size-[clamp(10rem,min(100vh_-_27.5rem,100vw_-_4rem),24rem)] mx-auto"
         />
       </div>
 
