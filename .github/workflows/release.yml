@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Refuse to release without the updater public key
+        shell: bash
+        run: |
+          if grep -q SET_IN_RELEASE_SETUP desktop/tauri.conf.json; then
+            echo "::error::desktop/tauri.conf.json still has the placeholder updater pubkey; installs from this release could never update."
+            exit 1
+          fi
+
+      - run: npm test
+      - run: npm run build:extension
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+
+      - run: cargo test --manifest-path desktop/Cargo.toml
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Boost Focus Timer ${{ github.ref_name }}
+          releaseBody: See the README for install and update steps.
+          releaseDraft: false
+          includeUpdaterJson: true
+          tauriScript: npx tauri
+
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: windows
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:extension
+      - run: gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

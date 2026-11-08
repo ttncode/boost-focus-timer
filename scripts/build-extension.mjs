@@ -29,7 +29,8 @@ function walk(dir) {
 
 function exportStaticSite() {
   rmSync(EXPORT_DIR, { recursive: true, force: true });
-  execFileSync("npx", ["next", "build"], { cwd: ROOT, stdio: "inherit", env: { ...process.env, BUILD_TARGET: "extension" } });
+  // On Windows npx is a .cmd file, which only a shell can run.
+  execFileSync("npx", ["next", "build"], { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, BUILD_TARGET: "extension" } });
   rmSync(EXTENSION_DIR, { recursive: true, force: true });
   mkdirSync(DIST_DIR, { recursive: true });
   cpSync(EXPORT_DIR, EXTENSION_DIR, { recursive: true });
@@ -43,7 +44,7 @@ function renameReservedPaths() {
   }
   // Leftover "_"-prefixed routes (e.g. the not-found page) are unused inside the extension.
   for (const entry of readdirSync(EXTENSION_DIR, { recursive: true })) {
-    const isReserved = String(entry).split("/").some((part) => part.startsWith("_"));
+    const isReserved = String(entry).split(/[\\/]/).some((part) => part.startsWith("_"));
     if (isReserved) rmSync(join(EXTENSION_DIR, String(entry)), { recursive: true, force: true });
   }
 }

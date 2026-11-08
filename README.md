@@ -5,7 +5,7 @@
 # Boost Focus Timer
 
 A calm, keyboard-friendly focus timer with to-dos, habits, goals and session history.
-Runs as a web app or as a browser extension, and keeps every bit of data in your own browser.
+Runs as a Windows desktop app, a web app or a browser extension, and keeps every bit of data on your own device.
 
 [![CI](https://github.com/ttncode/boost-focus-timer/actions/workflows/ci.yml/badge.svg)](https://github.com/ttncode/boost-focus-timer/actions/workflows/ci.yml)
 ![Node 24+](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)
@@ -46,6 +46,18 @@ npm run dev
 ```
 
 Open <http://localhost:3000>. To serve an optimized build instead, run `npm run build && npm start`.
+
+## Install the Windows desktop app
+
+1. Download `Boost.Focus.Timer_<version>_x64-setup.exe` from [Releases](https://github.com/ttncode/boost-focus-timer/releases/latest).
+2. Run it. Windows may warn about an unknown publisher the first time, because the installer is not code-signed: click **More info**, then **Run anyway**. It installs for your account only, so no admin rights are needed.
+3. The app opens, adds an icon to the system tray and starts with Windows from then on.
+
+Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to show or hide it. Closing the window (X) only hides it, so a running session and its notification carry on; to quit, right-click the tray icon → **Quit**. Turn off **Start with Windows** in the same menu if you don't want it at sign-in.
+
+The app updates itself: each time it starts it checks for a new version and installs it, unless a session is running. To check now, right-click the tray icon → **Check for updates**.
+
+The desktop app starts with empty data; it cannot read what the browser extension or web app stored.
 
 ## Install as a browser extension
 
