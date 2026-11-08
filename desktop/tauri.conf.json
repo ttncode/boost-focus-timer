@@ -41,7 +41,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "SET_IN_RELEASE_SETUP",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYyNTlCNkVBMzVGRDlBQTQKUldTa212MDE2clpaOHFWN09tdjFqV0hsTExWQVBtY3EzdXA4T2xJODQ3amhVS3VONXd3SWFZUEwK",
       "endpoints": ["https://github.com/ttncode/boost-focus-timer/releases/latest/download/latest.json"],
       "windows": {
         "installMode": "passive"
