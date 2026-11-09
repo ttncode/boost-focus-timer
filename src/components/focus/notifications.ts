@@ -4,15 +4,16 @@
  * end-of-session notifications (see lib/extension.ts), so pages there never notify themselves.
  * The desktop app works the same way, with its shell in place of the worker.
  */
-import { hasBackgroundWorker } from "../lib/extension";
+import { desktopNotificationsOn, hasBackgroundWorker, isDesktopApp } from "../lib/extension";
 
 const ICON_PATH = "/icons/icon-128.png";
 
 const hasWebNotifications = (): boolean => typeof window !== "undefined" && "Notification" in window;
 
-export type NotificationStatus = "unsupported" | NotificationPermission;
+export type NotificationStatus = "unsupported" | "off" | NotificationPermission;
 
 export function notificationStatus(): NotificationStatus {
+  if (isDesktopApp()) return desktopNotificationsOn() ? "granted" : "off";
   if (hasBackgroundWorker()) return "granted";
   return hasWebNotifications() ? Notification.permission : "unsupported";
 }

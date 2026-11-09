@@ -7,7 +7,7 @@ import { FocusTimer } from "./focus/FocusTimer";
 import { askForNotificationsOnFirstOpen } from "./focus/notifications";
 import { HotkeysProvider, useHotkey, useHotkeyMap } from "./hotkeys/HotkeysProvider";
 import { databaseService } from "./lib/database-service";
-import { isPopupView } from "./lib/extension";
+import { isPopupView, suppressDesktopContextMenu } from "./lib/extension";
 import { getLocalUserId } from "./lib/local-db";
 import { getDisplayName, saveDisplayName } from "./lib/profile";
 import { BottomNav } from "./shell/BottomNav";
@@ -59,6 +59,7 @@ function AppShell() {
   const [isPopup] = useState(isPopupView);
 
   useEffect(() => askForNotificationsOnFirstOpen(), []);
+  useEffect(() => suppressDesktopContextMenu(), []);
 
   useEffect(() => {
     databaseService.getTodayFocusMinutes().then(setTodayMinutes, (error: unknown) => {

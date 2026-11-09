@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { comboFromEvent, type HotkeyAction } from "./bindings";
 import { useHotkeys } from "./HotkeysProvider";
-import { isDesktopApp } from "../lib/extension";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
 
@@ -130,11 +129,6 @@ export function ShortcutsPanel({ actions, onClose }: { actions: readonly HotkeyA
           {isExtensionPage() ? (
             <p className="mt-3 px-1 text-xs text-gray-500">
               To open the timer from anywhere, set a shortcut at <code className="font-mono">chrome://extensions/shortcuts</code>.
-            </p>
-          ) : null}
-          {isDesktopApp() ? (
-            <p className="mt-3 px-1 text-xs text-gray-500">
-              Press <code className="font-mono">Ctrl+Alt+B</code> in any program to show or hide the timer.
             </p>
           ) : null}
           {APP_VERSION ? <p className="mt-2 px-1 text-xs text-gray-600">Boost Focus Timer {APP_VERSION}</p> : null}

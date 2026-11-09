@@ -53,11 +53,11 @@ Open <http://localhost:3000>. To serve an optimized build instead, run `npm run 
 2. Run it. Windows may warn about an unknown publisher the first time, because the installer is not code-signed: click **More info**, then **Run anyway**. It installs for your account only, so no admin rights are needed.
 3. The app opens, adds an icon to the system tray and starts with Windows from then on.
 
-Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to show or hide it. Closing the window (X) only hides it, so a running session and its notification carry on; to quit, right-click the tray icon → **Quit**. Turn off **Start with Windows** in the same menu if you don't want it at sign-in.
+Click the tray icon to bring it back. Closing the window (X) only hides it, so a running session and its notification carry on; to quit, right-click the tray icon → **Quit**. Turn off **Start with Windows** in the same menu if you don't want it at sign-in.
 
-The app updates itself: each time it starts it checks for a new version and installs it, unless a session is running. To check now, right-click the tray icon → **Check for updates**.
+The app checks for a new version when it starts and every 6 hours, and asks before installing, unless a session is running. To check now, right-click the tray icon → **Check for updates**.
 
-The desktop app starts with empty data; it cannot read what the browser extension or web app stored.
+The desktop app starts with empty data; it cannot read what the browser extension or web app stored. To move or back up your data, use **Menu → Settings → Export data** and **Import data**.
 
 ## Install as a browser extension
 

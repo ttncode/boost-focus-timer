@@ -19,6 +19,7 @@
         "minHeight": 400,
         "visible": false,
         "zoomHotkeysEnabled": false,
+        "dragDropEnabled": false,
         "useHttpsScheme": true,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
       }

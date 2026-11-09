@@ -4,6 +4,8 @@ pub struct ScheduledEnd {
     pub at_ms: f64,
     pub title: String,
     pub body: String,
+    /// False when the user turned notifications off; the end still marks a session as running.
+    pub notify: bool,
 }
 
 /// Empties `slot` and returns its end once `now_ms` has reached it.
@@ -19,7 +21,7 @@ mod tests {
     use super::*;
 
     fn end_at(at_ms: f64) -> Option<ScheduledEnd> {
-        Some(ScheduledEnd { at_ms, title: "Done".into(), body: "Break".into() })
+        Some(ScheduledEnd { at_ms, title: "Done".into(), body: "Break".into(), notify: true })
     }
 
     #[test]
