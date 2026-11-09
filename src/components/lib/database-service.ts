@@ -1,3 +1,5 @@
+import { fetchSessionsForDateRange } from "../pages/history/data";
+import { focusMinutes } from "../pages/history/stats";
 import { getLocalUserId, localDb, type Row } from "./local-db";
 
 export type SessionType = "focus" | "break";
@@ -80,22 +82,13 @@ export const databaseService = {
     return data ?? [];
   },
 
-  /** Minutes between start and end of today's finished focus sessions, pauses included. */
+  /** Unpaused minutes of finished focus sessions since local midnight, including the part of a session started yesterday. */
   async getTodayFocusMinutes(): Promise<number> {
     const midnight = new Date();
     midnight.setHours(0, 0, 0, 0);
-    const { data } = await localDb
-      .from<FocusSession>("focus_sessions")
-      .select("start_time, end_time")
-      .eq("session_type", "focus")
-      .gte("created_at", midnight.toISOString())
-      .not("start_time", "is", null)
-      .not("end_time", "is", null);
-    const total = (data ?? []).reduce(
-      (sum, row) => sum + (new Date(row.end_time ?? 0).getTime() - new Date(row.start_time ?? 0).getTime()) / 60000,
-      0,
-    );
-    return Math.round(total);
+    const now = new Date();
+    const { sessions, pauseMap } = await fetchSessionsForDateRange(midnight, now);
+    return Math.round(focusMinutes({ sessions, pauses: pauseMap }, { start: midnight, end: now }));
   },
 
   async getTags(): Promise<Tag[]> {

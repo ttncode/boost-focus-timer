@@ -16,7 +16,9 @@ import {
   type TooltipContentProps,
 } from "recharts";
 import { Clock, Layers, LayoutGrid, Loader2, Tag as TagIcon, TrendingUp } from "../../icons";
+import { localDateString } from "../habits/habit-model";
 import { fetchFocusTimeByTag, fetchTags, readStored, store, type Tag } from "./data";
+import { calendarDay, focusMinutes } from "./stats";
 
 type ViewMode = "today" | "7days" | "30days" | "90days" | "180days" | "365days" | "custom";
 type ChartStyle = "grouped" | "stacked";
@@ -56,14 +58,10 @@ const VIEW_OPTIONS: { mode: ViewMode; label: string }[] = [
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const BASE_KEYS = new Set(["date", "dateStr", "day", "total"]);
 
-function isoDay(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
-
 function defaultStartDate(): string {
   const d = new Date();
   d.setDate(d.getDate() - 6);
-  return isoDay(d);
+  return localDateString(d);
 }
 
 function readSelectedTagIds(): Set<string> {
@@ -83,12 +81,6 @@ function formatTime(minutes: number): string {
     return hours + "h " + mins + "m";
   }
   return Math.round(minutes) + "m";
-}
-
-// Local calendar-day key (DST-safe): bucket a timestamp by its local Y-M-D so long ranges
-// spanning a daylight-saving change don't drift a day.
-function dayKey(d: Date): string {
-  return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
 }
 
 function rangeFor(viewMode: ViewMode, customStartDate: string, customEndDate: string) {
@@ -192,7 +184,7 @@ export function TagsAnalytics({ userId }: { userId: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => (readStored("tagsAnalytics_viewMode") as ViewMode | null) || "7days");
   const [displayedViewMode, setDisplayedViewMode] = useState<ViewMode>(viewMode);
   const [customStartDate, setCustomStartDate] = useState(() => readStored("tagsAnalytics_customStartDate") || defaultStartDate());
-  const [customEndDate, setCustomEndDate] = useState(() => readStored("tagsAnalytics_customEndDate") || isoDay(new Date()));
+  const [customEndDate, setCustomEndDate] = useState(() => readStored("tagsAnalytics_customEndDate") || localDateString(new Date()));
   const [chartStyle, setChartStyle] = useState<ChartStyle>(() => (readStored("tagsAnalytics_chartStyle") as ChartStyle | null) || "grouped");
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(readSelectedTagIds);
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -223,13 +215,11 @@ export function TagsAnalytics({ userId }: { userId: string }) {
       .then((allTagStats) => {
         if (cancelled) return;
         const data: DayRow[] = [];
-        const dayIndexByKey = new Map<string, number>();
         const aggregatedMap = new Map<string, Aggregate>();
         for (let i = 0; i < numDays; i++) {
           const dayStart = new Date(startDate);
           dayStart.setDate(dayStart.getDate() + i);
           dayStart.setHours(0, 0, 0, 0);
-          dayIndexByKey.set(dayKey(dayStart), i);
           data.push({
             date: dayStart,
             dateStr: dayStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -239,20 +229,26 @@ export function TagsAnalytics({ userId }: { userId: string }) {
         }
 
         allTagStats.sessions.forEach((session) => {
-          if (!session.start_time || !session.end_time) return;
-          const dayIndex = dayIndexByKey.get(dayKey(new Date(session.created_at)));
-          if (dayIndex === undefined) return;
-          const duration = (new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / 60000;
+          const report = { sessions: [session], pauses: allTagStats.pauseMap };
           const sessionTags = allTagStats.sessionTagsMap.get(session.id) || [];
+          let minutesInRange = 0;
+          data.forEach((day) => {
+            const duration = focusMinutes(report, calendarDay(day.date));
+            minutesInRange += duration;
+            sessionTags.forEach((tag) => {
+              const currentMinutes = Number(day[tag.name]) || 0;
+              day[tag.name] = Math.round(currentMinutes + duration);
+              day.total += duration;
+            });
+          });
+          if (minutesInRange === 0) return;
+          // Once per session, outside the day loop, so a split session is not counted twice.
           sessionTags.forEach((tag) => {
-            const currentMinutes = Number(data[dayIndex][tag.name]) || 0;
-            data[dayIndex][tag.name] = Math.round(currentMinutes + duration);
-            data[dayIndex].total += duration;
             const existing = aggregatedMap.get(tag.id);
             if (existing) {
-              existing.minutes += duration;
+              existing.minutes += minutesInRange;
               existing.sessions += 1;
-            } else aggregatedMap.set(tag.id, { tag, minutes: duration, sessions: 1 });
+            } else aggregatedMap.set(tag.id, { tag, minutes: minutesInRange, sessions: 1 });
           });
         });
 
@@ -408,7 +404,7 @@ export function TagsAnalytics({ userId }: { userId: string }) {
             type="date"
             value={customEndDate}
             min={customStartDate}
-            max={isoDay(new Date())}
+            max={localDateString(new Date())}
             onChange={(e) => {
               setCustomEndDate(e.target.value);
               store("tagsAnalytics_customEndDate", e.target.value);

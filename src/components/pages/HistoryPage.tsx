@@ -42,8 +42,10 @@ import {
   buildDayData,
   calculateComparisonStats,
   calculateStats,
+  calendarDay,
   chartLayout,
   chartRange,
+  focusMinutes,
   formatDuration,
   formatSessionTime,
   formatTimeOnly,
@@ -51,12 +53,14 @@ import {
   getDailyComparisonData,
   getYTicks,
   groupSessionsByDate,
+  sessionStart,
   toLocalInput,
   yAxisFormatter,
   type DailyComparison,
 } from "./history/stats";
 import { hotkeyHint } from "../focus/GoalForm";
 import { useHotkey, useHotkeyLabel } from "../hotkeys/HotkeysProvider";
+import { localDateString } from "./habits/habit-model";
 import { TagSelector } from "./history/TagSelector";
 import { TagsAnalytics } from "./history/TagsAnalytics";
 import { useDialog } from "../dialogs/DialogProvider";
@@ -76,10 +80,6 @@ const CYCLED_PERIODS: readonly DailyFocusPeriod[] = PERIODS.map((p) => p.period)
 
 const AXIS = { axisLine: { stroke: "#374151" }, tickLine: { stroke: "#374151" } };
 const CURSOR = { fill: "rgba(59, 130, 246, 0.1)" };
-
-function isoDay(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
 
 function storedFlag(key: string, fallback: boolean): boolean {
   const s = readStored(key);
@@ -235,11 +235,11 @@ export function HistoryPage({ userId }: { userId: string }) {
     if (saved) return saved;
     const d = new Date();
     d.setDate(d.getDate() - 6);
-    return isoDay(d);
+    return localDateString(d);
   });
-  const [customEndDate, setCustomEndDate] = useState(() => readStored("focusHistory_customEndDate") || isoDay(new Date()));
+  const [customEndDate, setCustomEndDate] = useState(() => readStored("focusHistory_customEndDate") || localDateString(new Date()));
   const [chartSessions, setChartSessions] = useState<FocusSession[]>([]);
-  const [chartPauseMap, setChartPauseMap] = useState<Map<string, number>>(new Map());
+  const [chartPauseMap, setChartPauseMap] = useState<Map<string, PauseDetail[]>>(new Map());
   const [chartLoading, setChartLoading] = useState(false);
 
   const sessionsRef = useRef(sessions);
@@ -407,11 +407,12 @@ export function HistoryPage({ userId }: { userId: string }) {
   const prevCombo = useHotkeyLabel("list.prev");
   const nextCombo = useHotkeyLabel("list.next");
   const periodCombo = useHotkeyLabel("history.period");
-  const stats = calculateStats(sessions);
-  const comparison = calculateComparisonStats(sessions, weekOffset);
-  const dailyComparisonData = getDailyComparisonData(sessions, weekOffset);
+  const report = { sessions, pauses: sessionPauseDetails };
+  const stats = calculateStats(report);
+  const comparison = calculateComparisonStats(report, weekOffset);
+  const dailyComparisonData = getDailyComparisonData(report, weekOffset);
   const dayData = useMemo(
-    () => buildDayData({ period: dailyFocusPeriod, dayOffset, customStartDate, customEndDate }, chartSessions, chartPauseMap),
+    () => buildDayData({ period: dailyFocusPeriod, dayOffset, customStartDate, customEndDate }, { sessions: chartSessions, pauses: chartPauseMap }),
     [chartSessions, chartPauseMap, dayOffset, dailyFocusPeriod, customStartDate, customEndDate],
   );
   const layout = chartLayout(dailyFocusPeriod, dayData.length);
@@ -479,7 +480,7 @@ export function HistoryPage({ userId }: { userId: string }) {
                   type="date"
                   value={customEndDate}
                   min={customStartDate}
-                  max={isoDay(new Date())}
+                  max={localDateString(new Date())}
                   onChange={(e) => {
                     setCustomEndDate(e.target.value);
                     store("focusHistory_customEndDate", e.target.value);
@@ -575,11 +576,7 @@ export function HistoryPage({ userId }: { userId: string }) {
           <Section title={<h2 className="text-lg font-semibold text-white">Session History</h2>} open={showSessionHistory} onToggle={toggleSessionHistory} className="">
             <div className="space-y-6">
               {Object.entries(groupedSessions).map(([date, dateSessions]) => {
-                const totalMinutes = dateSessions.reduce((sum, session) => {
-                  if (!session.start_time || !session.end_time) return sum;
-                  const pauseDuration = sessionPauses.get(session.id) || 0;
-                  return sum + Math.max(0, (new Date(session.end_time).getTime() - new Date(session.start_time).getTime() - pauseDuration) / 60000);
-                }, 0);
+                const totalMinutes = focusMinutes(report, calendarDay(sessionStart(dateSessions[0])));
                 return (
                   <div key={date} className="border border-gray-800 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-4">

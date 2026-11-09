@@ -15,6 +15,8 @@ export type FocusSessionPause = Row & {
   pause_end_time: string | null;
 };
 
+export type PauseInterval = { start: string; end: string | null };
+
 export type Tag = Row & {
   user_id: string;
   name: string;
@@ -81,7 +83,7 @@ export async function fetchSessionsWithTags(userId: string, sessionIds: string[]
 export async function fetchSessionsForDateRange(
   startDate: Date,
   endDate: Date,
-): Promise<{ sessions: FocusSession[]; pauseMap: Map<string, number> }> {
+): Promise<{ sessions: FocusSession[]; pauseMap: Map<string, PauseInterval[]> }> {
   let allSessions: FocusSession[] = [];
   const batchSize = 1000;
   let offset = 0;
@@ -92,8 +94,8 @@ export async function fetchSessionsForDateRange(
       .eq("session_type", "focus")
       .not("start_time", "is", null)
       .not("end_time", "is", null)
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
+      .gte("end_time", startDate.toISOString())
+      .lte("start_time", endDate.toISOString())
       .order("created_at", { ascending: true })
       .range(offset, offset + batchSize - 1);
     if (error) throw error;
@@ -104,18 +106,18 @@ export async function fetchSessionsForDateRange(
   }
 
   const sessionIds = allSessions.map((s) => s.id);
-  const pauseMap = new Map<string, number>();
+  const pauseMap = new Map<string, PauseInterval[]>();
   if (sessionIds.length > 0) {
     const { data: pauses, error: pErr } = await localDb
       .from<FocusSessionPause>("focus_session_pauses")
       .select("*")
-      .in("session_id", sessionIds);
+      .in("session_id", sessionIds)
+      .order("pause_start_time", { ascending: true });
     if (!pErr && pauses) {
       pauses.forEach((p) => {
-        if (p.pause_end_time) {
-          const dur = new Date(p.pause_end_time).getTime() - new Date(p.pause_start_time).getTime();
-          pauseMap.set(p.session_id, (pauseMap.get(p.session_id) || 0) + dur);
-        }
+        const intervals = pauseMap.get(p.session_id) ?? [];
+        intervals.push({ start: p.pause_start_time, end: p.pause_end_time });
+        pauseMap.set(p.session_id, intervals);
       });
     }
   }
@@ -178,10 +180,10 @@ export async function fetchFocusTimeByTag(
   userId: string,
   startDate: Date,
   endDate: Date,
-): Promise<{ sessions: FocusSession[]; sessionTagsMap: Map<string, Tag[]> }> {
+): Promise<{ sessions: FocusSession[]; pauseMap: Map<string, PauseInterval[]>; sessionTagsMap: Map<string, Tag[]> }> {
   const result = await fetchSessionsForDateRange(startDate, endDate);
   const tagsMap = await fetchSessionsWithTags(userId, result.sessions.map((s) => s.id));
-  return { sessions: result.sessions, sessionTagsMap: tagsMap };
+  return { sessions: result.sessions, pauseMap: result.pauseMap, sessionTagsMap: tagsMap };
 }
 
 export function readStored(key: string): string | null {

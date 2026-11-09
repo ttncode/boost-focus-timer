@@ -1,7 +1,8 @@
 import type { DailyFocusPeriod, DayData } from "./charts";
-import type { FocusSession } from "./data";
+import type { FocusSession, PauseInterval } from "./data";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const MS_PER_MINUTE = 60000;
 
 const PERIOD_DAYS: Record<Exclude<DailyFocusPeriod, "custom">, number> = {
   "7days": 7,
@@ -20,15 +21,43 @@ export interface ChartWindow {
   customEndDate: string;
 }
 
-function rawMinutes(sessions: FocusSession[]): number {
-  return sessions.reduce((sum, s) => {
-    if (s.start_time && s.end_time) return sum + (new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 60000;
-    return sum;
-  }, 0);
+export type TimeWindow = { start: Date; end: Date };
+
+export interface SessionReport {
+  sessions: FocusSession[];
+  pauses: ReadonlyMap<string, PauseInterval[]>;
 }
 
-function focusOnly(sessions: FocusSession[]): FocusSession[] {
-  return sessions.filter((s) => s.session_type === "focus");
+function overlapMs(a: TimeWindow, b: TimeWindow): number {
+  return Math.max(0, Math.min(a.end.getTime(), b.end.getTime()) - Math.max(a.start.getTime(), b.start.getTime()));
+}
+
+function sessionSegments(session: FocusSession, pauses: PauseInterval[]): TimeWindow[] {
+  if (!session.start_time || !session.end_time) return [];
+  return activeSegments(session, pauses) ?? [{ start: new Date(session.start_time), end: new Date(session.end_time) }];
+}
+
+/** Unpaused minutes inside `window`, so a session crossing midnight counts part on each day. */
+export function focusMinutes({ sessions, pauses }: SessionReport, window: TimeWindow): number {
+  const segments = sessions.flatMap((session) => sessionSegments(session, pauses.get(session.id) ?? []));
+  return segments.reduce((sum, segment) => sum + overlapMs(segment, window), 0) / MS_PER_MINUTE;
+}
+
+export function calendarDay(date: Date): TimeWindow {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+// start_time rather than created_at: only start_time follows an edit in History.
+export function sessionStart(session: FocusSession): Date {
+  return new Date(session.start_time ?? session.created_at);
+}
+
+function focusOnly(report: SessionReport): SessionReport {
+  return { ...report, sessions: report.sessions.filter((s) => s.session_type === "focus") };
 }
 
 function startOfWeekWithOffset(weekOffset: number): Date {
@@ -42,7 +71,7 @@ function startOfWeekWithOffset(weekOffset: number): Date {
 }
 
 function inRange(session: FocusSession, from: Date, to: Date): boolean {
-  const d = new Date(session.created_at);
+  const d = sessionStart(session);
   return d >= from && d < to;
 }
 
@@ -61,8 +90,7 @@ export function chartRange({ period, dayOffset, customStartDate, customEndDate }
 
 export function buildDayData(
   window: ChartWindow,
-  chartSessions: FocusSession[],
-  chartPauseMap: Map<string, number>,
+  report: SessionReport,
 ): DayData[] {
   const { period, dayOffset, customStartDate, customEndDate } = window;
   let numDays: number;
@@ -84,13 +112,7 @@ export function buildDayData(
     date.setHours(0, 0, 0, 0);
     const nextDate = new Date(date);
     nextDate.setDate(nextDate.getDate() + 1);
-    const totalMinutes = chartSessions
-      .filter((session) => inRange(session, date, nextDate))
-      .reduce((sum, session) => {
-        if (!session.start_time || !session.end_time) return sum;
-        const pauseDuration = chartPauseMap.get(session.id) || 0;
-        return sum + Math.max(0, (new Date(session.end_time).getTime() - new Date(session.start_time).getTime() - pauseDuration) / 60000);
-      }, 0);
+    const totalMinutes = focusMinutes(report, { start: date, end: nextDate });
     return {
       date,
       day: date.toLocaleDateString("en-US", { weekday: "short" }),
@@ -100,34 +122,35 @@ export function buildDayData(
   });
 }
 
-export function calculateStats(sessions: FocusSession[]) {
-  const focusSessions = focusOnly(sessions);
+export function calculateStats(report: SessionReport) {
+  const focus = focusOnly(report);
+  const now = new Date();
   const startOfWeek = startOfWeekWithOffset(0);
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  const todaySessions = focusSessions.filter((s) => new Date(s.created_at) >= startOfDay);
-  const weekSessions = focusSessions.filter((s) => new Date(s.created_at) >= startOfWeek);
+  const todaySessions = focus.sessions.filter((s) => sessionStart(s) >= startOfDay);
+  const weekSessions = focus.sessions.filter((s) => sessionStart(s) >= startOfWeek);
   return {
-    todayMinutes: Math.round(rawMinutes(todaySessions)),
+    todayMinutes: Math.round(focusMinutes(focus, { start: startOfDay, end: now })),
     todaySessions: todaySessions.length,
     todayCompleted: todaySessions.filter((s) => s.completed).length,
-    weekMinutes: Math.round(rawMinutes(weekSessions)),
+    weekMinutes: Math.round(focusMinutes(focus, { start: startOfWeek, end: now })),
     weekSessions: weekSessions.length,
     weekCompleted: weekSessions.filter((s) => s.completed).length,
   };
 }
 
-export function calculateComparisonStats(sessions: FocusSession[], weekOffset: number) {
-  const focusSessions = focusOnly(sessions);
+export function calculateComparisonStats(report: SessionReport, weekOffset: number) {
+  const focus = focusOnly(report);
   const startOfThisWeek = startOfWeekWithOffset(weekOffset);
   const startOfLastWeek = new Date(startOfThisWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
   // "This week" has no upper bound, so older weeks include everything after them.
-  const thisWeekSessions = focusSessions.filter((s) => new Date(s.created_at) >= startOfThisWeek);
-  const lastWeekSessions = focusSessions.filter((s) => inRange(s, startOfLastWeek, startOfThisWeek));
+  const thisWeekSessions = focus.sessions.filter((s) => sessionStart(s) >= startOfThisWeek);
+  const lastWeekSessions = focus.sessions.filter((s) => inRange(s, startOfLastWeek, startOfThisWeek));
   return {
-    thisWeek: { minutes: Math.round(rawMinutes(thisWeekSessions)), sessions: thisWeekSessions.length },
-    lastWeek: { minutes: Math.round(rawMinutes(lastWeekSessions)), sessions: lastWeekSessions.length },
+    thisWeek: { minutes: Math.round(focusMinutes(focus, { start: startOfThisWeek, end: new Date() })), sessions: thisWeekSessions.length },
+    lastWeek: { minutes: Math.round(focusMinutes(focus, { start: startOfLastWeek, end: startOfThisWeek })), sessions: lastWeekSessions.length },
   };
 }
 
@@ -138,8 +161,8 @@ export interface DailyComparison {
   lastWeekMinutes: number;
 }
 
-export function getDailyComparisonData(sessions: FocusSession[], weekOffset: number): DailyComparison[] {
-  const focusSessions = focusOnly(sessions);
+export function getDailyComparisonData(report: SessionReport, weekOffset: number): DailyComparison[] {
+  const focus = focusOnly(report);
   const startOfThisWeek = startOfWeekWithOffset(weekOffset);
   const startOfLastWeek = new Date(startOfThisWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
@@ -155,8 +178,8 @@ export function getDailyComparisonData(sessions: FocusSession[], weekOffset: num
     return {
       date: thisWeekDay,
       day: thisWeekDay.toLocaleDateString("en-US", { weekday: "short" }),
-      thisWeekMinutes: Math.round(rawMinutes(focusSessions.filter((s) => inRange(s, thisWeekDay, thisWeekDayEnd)))),
-      lastWeekMinutes: Math.round(rawMinutes(focusSessions.filter((s) => inRange(s, lastWeekDay, lastWeekDayEnd)))),
+      thisWeekMinutes: Math.round(focusMinutes(focus, { start: thisWeekDay, end: thisWeekDayEnd })),
+      lastWeekMinutes: Math.round(focusMinutes(focus, { start: lastWeekDay, end: lastWeekDayEnd })),
     };
   });
 }
@@ -205,7 +228,7 @@ export function yAxisFormatter(value: number): string {
 export function groupSessionsByDate(sessions: FocusSession[]): Record<string, FocusSession[]> {
   const grouped: Record<string, FocusSession[]> = {};
   sessions.forEach((session) => {
-    const date = new Date(session.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const date = sessionStart(session).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     if (!grouped[date]) grouped[date] = [];
     grouped[date].push(session);
   });

@@ -1,4 +1,5 @@
 import { localDb, type Row } from "../../lib/local-db";
+import { localDateString } from "../habits/habit-model";
 
 /** Goals and their comments live in the shared `user_data` table, discriminated by `type`. */
 export type UserDataRow = Row & { user_id: string; type: string; data: Record<string, unknown> };
@@ -58,8 +59,8 @@ export function toComment(row: UserDataRow): GoalComment {
 
 export const byPosition = (a: Goal, b: Goal): number => a.data.position - b.data.position;
 
-/** `YYYY-MM-DD` of the current UTC day, the value the date inputs start with. */
-export const todayIso = (): string => new Date().toISOString().slice(0, 10);
+/** `YYYY-MM-DD` of the current local day, the value the date inputs start with. */
+export const todayIso = (): string => localDateString(new Date());
 
 export function saveGoalData(goal: Goal): void {
   localDb
