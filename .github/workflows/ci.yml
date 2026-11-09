@@ -73,6 +73,10 @@ jobs:
           workspaces: desktop
 
       - run: cargo test --manifest-path desktop/Cargo.toml
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cargo-lock
+          path: desktop/Cargo.lock
       - run: cargo clippy --manifest-path desktop/Cargo.toml --all-targets -- -D warnings
       - run: npx tauri build --no-bundle
 

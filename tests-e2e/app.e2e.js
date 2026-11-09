@@ -58,12 +58,12 @@ test("every default in-app shortcut reaches the page", async () => {
   assert.deepEqual(presses.map(pressName).filter((name) => !seen.has(name)), []);
 });
 
-test("the shortcut list names the global key and hides Open full page", async () => {
+test("the shortcut list hides Open full page", async () => {
   await app.press({ mod: true, code: "Slash" });
-  await app.waitFor("return document.body.innerText.includes('Ctrl+Alt+B')");
+  await app.waitFor("return document.body.innerText.includes('Reset All to Default')");
   assert.equal(await app.execute("return document.body.innerText.includes('Open full page')"), false);
   await app.press({ mod: true, code: "Slash" });
-  await app.waitFor("return !document.body.innerText.includes('Ctrl+Alt+B')");
+  await app.waitFor("return !document.body.innerText.includes('Reset All to Default')");
 });
 
 test("F5 does not reload the app", async () => {
@@ -73,11 +73,22 @@ test("F5 does not reload the app", async () => {
   assert.equal(await app.execute("return window.__stillHere === true"), true);
 });
 
+test("the browser context menu is kept only where text can be edited", async () => {
+  const outcome = await app.execute(`
+    const rightClick = (element) => !element.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    const input = document.body.appendChild(document.createElement("input"));
+    const result = { page: rightClick(document.body), field: rightClick(input) };
+    input.remove();
+    return result;
+  `);
+  assert.deepEqual(outcome, { page: true, field: false });
+});
+
 test("the shell accepts and cancels a scheduled end", async () => {
   const outcome = `
     const done = arguments[arguments.length - 1];
     const invoke = window.__TAURI__.core.invoke;
-    invoke("schedule_end", { at: Date.now() + 3600000, title: "t", body: "b" })
+    invoke("schedule_end", { at: Date.now() + 3600000, title: "t", body: "b", notify: true })
       .then(() => invoke("cancel_end", {}))
       .then(() => done("ok"), (error) => done(String(error)));
   `;

@@ -1,14 +1,14 @@
 pub mod timer;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, State, WebviewWindow, WindowEvent};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
-use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -19,20 +19,25 @@ const APP_NAME: &str = "Boost Focus Timer";
 const MAIN_WINDOW: &str = "main";
 const HIDDEN_ARG: &str = "--hidden";
 const AUTOSTART_OFF_MARKER: &str = "autostart-off";
-const GLOBAL_SHORTCUT: &str = "Ctrl+Alt+B";
+const CLOSE_NOTICE_MARKER: &str = "close-notice-shown";
+const TRAY_ID: &str = "main";
 const END_POLL: Duration = Duration::from_secs(1);
-// WebView2 writes localStorage to disk a few seconds late, and the installer ends the app abruptly.
+const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+const SESSION_RUNNING_MESSAGE: &str = "A session is running. Check again when it has finished.";
+// WebView2 writes localStorage to disk a few seconds late, and ending the app abruptly loses those writes.
 const STORAGE_COMMIT_WAIT: Duration = Duration::from_secs(6);
 
 #[derive(Default)]
 struct AppState {
     scheduled_end: Mutex<Option<ScheduledEnd>>,
+    update_check_busy: AtomicBool,
+    declined_update: Mutex<Option<String>>,
 }
 
 #[tauri::command]
-fn schedule_end(state: State<AppState>, at: f64, title: String, body: String) -> Result<(), String> {
+fn schedule_end(state: State<AppState>, at: f64, title: String, body: String, notify: bool) -> Result<(), String> {
     let mut slot = state.scheduled_end.lock().map_err(|error| error.to_string())?;
-    *slot = Some(ScheduledEnd { at_ms: at, title, body });
+    *slot = Some(ScheduledEnd { at_ms: at, title, body, notify });
     Ok(())
 }
 
@@ -56,6 +61,17 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|error| error.to_string())
 }
 
+/// Async so the blocking save dialog stays off the main thread. Returns false if the user cancels.
+#[tauri::command(async)]
+fn save_backup(app: AppHandle, file_name: String, contents: String) -> Result<bool, String> {
+    let Some(picked) = app.dialog().file().set_file_name(file_name).add_filter("JSON", &["json"]).blocking_save_file() else {
+        return Ok(false);
+    };
+    let path = picked.into_path().map_err(|error| error.to_string())?;
+    std::fs::write(path, contents).map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
 fn now_ms() -> f64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0.0, |elapsed| elapsed.as_millis() as f64)
 }
@@ -70,7 +86,7 @@ fn start_end_timer(app: AppHandle) {
             Ok(mut slot) => timer::take_due(&mut slot, now_ms()),
             Err(_) => None,
         };
-        if let Some(end) = due {
+        if let Some(end) = due.filter(|end| end.notify) {
             let _ = app.notification().builder().title(end.title).body(end.body).show();
         }
     });
@@ -99,61 +115,123 @@ fn hide_main(app: &AppHandle) {
     }
 }
 
-fn toggle_main(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
-    let in_front = window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false);
-    if in_front {
-        hide_main(app);
-    } else {
-        show_main(app);
-    }
-}
-
 fn show_message(app: &AppHandle, text: String) {
     app.dialog().message(text).title(APP_NAME).show(|_| {});
 }
 
-/// Never restarts under a running session: the next start or a tray check picks the update up.
-fn install_update(app: &AppHandle, update: Update, bytes: Vec<u8>, from_tray: bool) {
+fn set_tray_tooltip(app: &AppHandle, text: &str) {
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = tray.set_tooltip(Some(text));
+    }
+}
+
+/// Never restarts under a running session, which may have started during the download.
+fn install_update(app: &AppHandle, update: Update, bytes: Vec<u8>) {
     if timer_running(app) {
-        if from_tray {
-            show_message(app, "A session is running. Check again when it has finished.".to_string());
-        }
+        show_message(app, SESSION_RUNNING_MESSAGE.to_string());
         return;
     }
     hide_main(app);
     std::thread::sleep(STORAGE_COMMIT_WAIT);
     match update.install(bytes) {
         Ok(()) => app.restart(),
-        Err(error) => show_message(app, format!("Couldn't install the update: {error}")),
+        Err(error) => {
+            show_main(app);
+            show_message(app, format!("Couldn't install the update: {error}"));
+        }
     }
 }
 
-/// At start a failed check stays silent and is retried next start; from the tray it says why.
-async fn check_for_update(app: AppHandle, from_tray: bool) {
+fn ask_to_install(app: &AppHandle, version: &str) -> bool {
+    app.dialog()
+        .message(format!("Version {version} is available. Install it now? The app will close and reopen."))
+        .title(APP_NAME)
+        .buttons(MessageDialogButtons::OkCancelCustom("Install and restart".to_string(), "Later".to_string()))
+        .blocking_show()
+}
+
+fn was_declined(app: &AppHandle, version: &str) -> bool {
+    app.state::<AppState>().declined_update.lock().is_ok_and(|slot| slot.as_deref() == Some(version))
+}
+
+fn remember_declined(app: &AppHandle, version: &str) {
+    if let Ok(mut slot) = app.state::<AppState>().declined_update.lock() {
+        *slot = Some(version.to_string());
+    }
+}
+
+/// Automatic checks ask once per version per run, so "Later" is not repeated every few hours.
+async fn offer_update(app: &AppHandle, update: Update, from_tray: bool) {
+    if timer_running(app) {
+        if from_tray {
+            show_message(app, SESSION_RUNNING_MESSAGE.to_string());
+        }
+        return;
+    }
+    if !from_tray && was_declined(app, &update.version) {
+        return;
+    }
+    if !ask_to_install(app, &update.version) {
+        remember_declined(app, &update.version);
+        return;
+    }
+    set_tray_tooltip(app, "Downloading update…");
+    let downloaded = update.download(|_, _| {}, || {}).await;
+    set_tray_tooltip(app, APP_NAME);
+    match downloaded {
+        Ok(bytes) => install_update(app, update, bytes),
+        Err(error) => show_message(app, format!("Couldn't download the update: {error}")),
+    }
+}
+
+/// An automatic check that fails stays silent and is retried later; from the tray it says why.
+async fn run_update_check(app: &AppHandle, from_tray: bool) {
     let result = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(error) => Err(error),
     };
     match result {
-        Ok(Some(update)) => match update.download(|_, _| {}, || {}).await {
-            Ok(bytes) => install_update(&app, update, bytes, from_tray),
-            Err(error) if from_tray => show_message(&app, format!("Couldn't download the update: {error}")),
-            Err(_) => {}
-        },
-        Ok(None) if from_tray => show_message(&app, format!("{APP_NAME} {} is the latest version.", app.package_info().version)),
-        Err(error) if from_tray => show_message(&app, format!("Couldn't check for updates: {error}")),
+        Ok(Some(update)) => offer_update(app, update, from_tray).await,
+        Ok(None) if from_tray => show_message(app, format!("{APP_NAME} {} is the latest version.", app.package_info().version)),
+        Err(error) if from_tray => show_message(app, format!("Couldn't check for updates: {error}")),
         _ => {}
     }
 }
 
-fn autostart_marker(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_data_dir().ok().map(|dir| dir.join(AUTOSTART_OFF_MARKER))
+async fn check_for_update(app: AppHandle, from_tray: bool) {
+    let state = app.state::<AppState>();
+    if state.update_check_busy.swap(true, Ordering::SeqCst) {
+        if from_tray {
+            show_message(&app, "An update check is already running.".to_string());
+        }
+        return;
+    }
+    run_update_check(&app, from_tray).await;
+    state.update_check_busy.store(false, Ordering::SeqCst);
+}
+
+/// The app lives in the tray for weeks, so checking only at launch would leave it behind.
+fn start_update_checks(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        tauri::async_runtime::block_on(check_for_update(app.clone(), false));
+        std::thread::sleep(UPDATE_CHECK_EVERY);
+    });
+}
+
+fn app_marker(app: &AppHandle, name: &str) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|dir| dir.join(name))
+}
+
+fn write_marker(marker: &Path) {
+    if let Some(dir) = marker.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(marker, b"");
 }
 
 /// Start with Windows is on unless the user turned it off from the tray, which leaves a marker file.
 fn apply_autostart_choice(app: &AppHandle) -> bool {
-    let turned_off = autostart_marker(app).is_some_and(|marker| marker.exists());
+    let turned_off = app_marker(app, AUTOSTART_OFF_MARKER).is_some_and(|marker| marker.exists());
     if !turned_off {
         let _ = app.autolaunch().enable();
     }
@@ -161,22 +239,53 @@ fn apply_autostart_choice(app: &AppHandle) -> bool {
 }
 
 fn set_autostart(app: &AppHandle, enabled: bool) {
-    let Some(marker) = autostart_marker(app) else { return };
+    let Some(marker) = app_marker(app, AUTOSTART_OFF_MARKER) else { return };
     if enabled {
         let _ = std::fs::remove_file(&marker);
         let _ = app.autolaunch().enable();
     } else {
-        if let Some(dir) = marker.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let _ = std::fs::write(&marker, b"");
+        write_marker(&marker);
         let _ = app.autolaunch().disable();
     }
 }
 
+fn hide_on_close(app: &AppHandle) {
+    hide_main(app);
+    let Some(marker) = app_marker(app, CLOSE_NOTICE_MARKER) else { return };
+    if marker.exists() {
+        return;
+    }
+    write_marker(&marker);
+    show_message(
+        app,
+        format!("{APP_NAME} is still running in the system tray, so sessions and notifications carry on. Click the tray icon to reopen it (it may be under the ^ arrow). To exit, right-click the icon and choose Quit."),
+    );
+}
+
+fn exit_after_storage_commit(app: &AppHandle) {
+    hide_main(app);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(STORAGE_COMMIT_WAIT);
+        app.exit(0);
+    });
+}
+
 fn quit(app: &AppHandle) {
-    let _ = app.save_window_state(window_state_flags());
-    app.exit(0);
+    if !timer_running(app) {
+        exit_after_storage_commit(app);
+        return;
+    }
+    let confirmed_app = app.clone();
+    app.dialog()
+        .message("A session is running. Quit anyway? You won't get its end notification.")
+        .title(APP_NAME)
+        .buttons(MessageDialogButtons::OkCancelCustom("Quit".to_string(), "Keep running".to_string()))
+        .show(move |confirmed| {
+            if confirmed {
+                exit_after_storage_commit(&confirmed_app);
+            }
+        });
 }
 
 fn build_tray(app: &AppHandle, autostart_on: bool) -> tauri::Result<()> {
@@ -187,7 +296,7 @@ fn build_tray(app: &AppHandle, autostart_on: bool) -> tauri::Result<()> {
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&version, &open, &check, &autostart, &separator, &quit_item])?;
-    let mut tray = TrayIconBuilder::with_id("main")
+    let mut tray = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip(APP_NAME)
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -235,25 +344,16 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![HIDDEN_ARG])))
         .plugin(tauri_plugin_window_state::Builder::default().with_state_flags(window_state_flags()).build())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        toggle_main(app);
-                    }
-                })
-                .build(),
-        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![schedule_end, cancel_end, open_url])
+        .invoke_handler(tauri::generate_handler![schedule_end, cancel_end, open_url, save_backup])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                hide_main(window.app_handle());
+                hide_on_close(window.app_handle());
             }
         })
         .setup(|app| {
@@ -271,10 +371,7 @@ pub fn run() {
             if !started_hidden {
                 show_main(&handle);
             }
-            if app.global_shortcut().register(GLOBAL_SHORTCUT).is_err() && !started_hidden {
-                show_message(&handle, format!("{GLOBAL_SHORTCUT} is used by another program. Open the app from its tray icon instead."));
-            }
-            tauri::async_runtime::spawn(check_for_update(handle, false));
+            start_update_checks(handle);
             Ok(())
         })
         .run(tauri::generate_context!())

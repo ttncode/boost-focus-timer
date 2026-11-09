@@ -36,6 +36,9 @@ type Action =
 
 const STORAGE_PREFIX = "bft:db:";
 
+/** Dispatched on `window` when a change could not be saved, in practice because storage is full. */
+export const STORAGE_WRITE_FAILED_EVENT = "bft:storage-write-failed";
+
 function readTable(table: string): Row[] {
   if (typeof window === "undefined") return [];
   try {
@@ -49,7 +52,12 @@ function readTable(table: string): Row[] {
 
 function writeTable(table: string, rows: readonly Row[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(rows));
+  try {
+    window.localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(rows));
+  } catch (error) {
+    window.dispatchEvent(new Event(STORAGE_WRITE_FAILED_EVENT));
+    throw error;
+  }
 }
 
 function newId(): string {

@@ -6,10 +6,12 @@ import { Bell, ChevronDown, CircleUser, Expand, Keyboard, Menu, Settings, Tag, V
 import { hotkeyHint } from "../focus/GoalForm";
 import { useHotkey, useHotkeyLabel, useHotkeys } from "../hotkeys/HotkeysProvider";
 import type { Tab } from "../types";
-import { isDesktopApp, isPopupView, openFullPage } from "../lib/extension";
+import { desktopNotificationsOn, isDesktopApp, isPopupView, openFullPage, setDesktopNotificationsOn } from "../lib/extension";
+import { BackupItems } from "./BackupItems";
 import { SoundsPanel } from "./SoundsPanel";
 import { MOBILE_NAV_OFFSET, MOBILE_QUERY, useMediaQuery } from "./use-media-query";
 import { useDialog } from "../dialogs/DialogProvider";
+import { STORAGE_WRITE_FAILED_EVENT } from "../lib/local-db";
 
 const SUB_ITEM =
   "w-full px-4 py-2 text-left text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors flex items-center gap-2";
@@ -20,11 +22,16 @@ const SETTINGS: readonly { label: string; Icon: ComponentType<{ className?: stri
   { label: "Tags", Icon: Tag, target: "tags" },
 ];
 
-const NOTIFICATION_LABELS: Readonly<Record<NotificationPermission, string>> = {
+const NOTIFICATION_LABELS: Readonly<Record<Exclude<NotificationStatus, "unsupported">, string>> = {
   granted: "Notifications: On",
   default: "Turn on notifications",
   denied: "Notifications: Blocked",
+  off: "Notifications: Off",
 };
+
+const DESKTOP_NOTIFICATIONS_ON_HELP =
+  "Notifications are on: you'll get one when a focus session or break ends. Windows can still silence them under Settings > System > Notifications, and the app can't detect that.";
+const DESKTOP_NOTIFICATIONS_OFF_HELP = "Notifications are off. Sessions and breaks will end without one.";
 
 const NOTIFICATION_HELP: Readonly<Record<"granted" | "denied", string>> = {
   granted:
@@ -33,10 +40,18 @@ const NOTIFICATION_HELP: Readonly<Record<"granted" | "denied", string>> = {
     "Notifications are blocked for this site. Allow them in your browser's site settings (the icon left of the address bar), then reload.",
 };
 
-/** Asks for permission while undecided, otherwise explains how to change it; resolves to the resulting status. */
+async function toggleDesktopNotifications(dialog: ReturnType<typeof useDialog>): Promise<NotificationStatus> {
+  const turnOn = !desktopNotificationsOn();
+  setDesktopNotificationsOn(turnOn);
+  await dialog.alert(turnOn ? DESKTOP_NOTIFICATIONS_ON_HELP : DESKTOP_NOTIFICATIONS_OFF_HELP, { title: "Notifications" });
+  return notificationStatus();
+}
+
+/** Toggles on desktop. Elsewhere asks for permission while undecided, otherwise explains how to change it. Resolves to the resulting status. */
 async function actOnNotifications(dialog: ReturnType<typeof useDialog>): Promise<NotificationStatus> {
   const status = notificationStatus();
   if (status === "unsupported") return status;
+  if (status === "off" || isDesktopApp()) return toggleDesktopNotifications(dialog);
   if (status === "default") return requestNotificationPermission();
   await dialog.alert(NOTIFICATION_HELP[status], { title: "Notifications" });
   return status;
@@ -94,6 +109,18 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
   useEffect(() => {
     if (isOpen) panelRef.current?.querySelector("button")?.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    let isWarningOpen = false;
+    const warn = async () => {
+      if (isWarningOpen) return;
+      isWarningOpen = true;
+      await dialog.alert("Your last change couldn't be saved because storage is full. Export your data from the menu, then free up space by deleting posts or old items.", { title: "Storage full" });
+      isWarningOpen = false;
+    };
+    window.addEventListener(STORAGE_WRITE_FAILED_EVENT, warn);
+    return () => window.removeEventListener(STORAGE_WRITE_FAILED_EVENT, warn);
+  }, [dialog]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -176,6 +203,7 @@ export function StartMenu({ onNavigate }: { onNavigate(tab: Tab): void }) {
                   <span>Keyboard Shortcuts</span>
                 </button>
                 <NotificationsItem />
+                <BackupItems className={SUB_ITEM} />
               </div>
             ) : null}
           </div>

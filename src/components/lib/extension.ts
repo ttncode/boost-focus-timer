@@ -6,6 +6,8 @@
  */
 
 const RUNNING_TIMER_KEY = "bft:runningTimer";
+const DESKTOP_NOTIFICATIONS_OFF_KEY = "bft:desktopNotificationsOff";
+const BLOB_URL_LIFETIME_MS = 10_000;
 
 interface ExtensionRuntime {
   runtime: { id?: string; sendMessage(message: BackgroundMessage): Promise<unknown> };
@@ -18,7 +20,7 @@ interface DesktopShell {
 export type BackgroundMessage =
   | { type: "open-app" }
   | { type: "open-url"; url: string }
-  | { type: "schedule-end"; at: number; title: string; body: string }
+  | { type: "schedule-end"; at: number; title: string; body: string; notify: boolean }
   | { type: "cancel-end" };
 
 function runtime(): ExtensionRuntime["runtime"] | null {
@@ -66,6 +68,41 @@ export function openLinkOnDesktop(event: { preventDefault(): void }, url: string
   void send({ type: "open-url", url });
 }
 
+/** Resolves false when the user cancels the desktop save dialog; rejects if the file can't be written. */
+export async function saveBackupFile(fileName: string, contents: string): Promise<boolean> {
+  const desktop = desktopShell();
+  if (desktop) return (await desktop.core.invoke("save_backup", { fileName, contents })) === true;
+  const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+  Object.assign(document.createElement("a"), { href: url, download: fileName }).click();
+  setTimeout(() => URL.revokeObjectURL(url), BLOB_URL_LIFETIME_MS);
+  return true;
+}
+
+function keepsNativeMenu(target: EventTarget | null): boolean {
+  const isEditable = target instanceof Element && target.closest("input, textarea, [contenteditable]") !== null;
+  return isEditable || Boolean(window.getSelection()?.toString());
+}
+
+/** WebView2's default menu offers Reload and Print; only cut, copy and paste belong in an app. */
+export function suppressDesktopContextMenu(): () => void {
+  if (!isDesktopApp()) return () => {};
+  const suppress = (event: MouseEvent) => {
+    if (!keepsNativeMenu(event.target)) event.preventDefault();
+  };
+  document.addEventListener("contextmenu", suppress);
+  return () => document.removeEventListener("contextmenu", suppress);
+}
+
+export const desktopNotificationsOn = (): boolean => localStorage.getItem(DESKTOP_NOTIFICATIONS_OFF_KEY) === null;
+
+/** Applies at once: a running session's end is rescheduled with the new choice. */
+export function setDesktopNotificationsOn(isOn: boolean): void {
+  if (isOn) localStorage.removeItem(DESKTOP_NOTIFICATIONS_OFF_KEY);
+  else localStorage.setItem(DESKTOP_NOTIFICATIONS_OFF_KEY, "true");
+  const running = readRunningTimer();
+  if (running) trackRunningTimer(running);
+}
+
 export interface RunningTimer {
   readonly kind: "focus" | "break";
   readonly sessionId: string;
@@ -86,7 +123,7 @@ export function trackRunningTimer(timer: RunningTimer): void {
     timer.kind === "focus"
       ? { title: "Focus session complete", body: `${timer.goal.trim() || "Nice work"} · time for a break.` }
       : { title: "Break is over", body: "Ready for the next focus session?" };
-  void send({ type: "schedule-end", at: timer.endAt, ...notification });
+  void send({ type: "schedule-end", at: timer.endAt, notify: desktopNotificationsOn(), ...notification });
 }
 
 export function clearRunningTimer(): void {
