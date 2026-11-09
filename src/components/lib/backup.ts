@@ -23,7 +23,7 @@ function replaceEntries(storage: Storage, entries: Entries): void {
 }
 
 export function backupFileName(date: Date): string {
-  return `boost-focus-timer-backup-${date.toISOString().slice(0, 10)}.json`;
+  return `boost-focus-timer-backup-${date.toLocaleDateString("en-CA")}.json`;
 }
 
 export function createBackup(storage: Storage, date: Date): string {

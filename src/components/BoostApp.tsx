@@ -62,9 +62,17 @@ function AppShell() {
   useEffect(() => suppressDesktopContextMenu(), []);
 
   useEffect(() => {
-    databaseService.getTodayFocusMinutes().then(setTodayMinutes, (error: unknown) => {
-      console.error("Error loading today minutes:", error);
-    });
+    let timer: ReturnType<typeof setTimeout>;
+    const refreshNowAndAtMidnight = () => {
+      databaseService.getTodayFocusMinutes().then(setTodayMinutes, (error: unknown) => {
+        console.error("Error loading today minutes:", error);
+      });
+      const nextMidnight = new Date();
+      nextMidnight.setHours(24, 0, 0, 0);
+      timer = setTimeout(refreshNowAndAtMidnight, nextMidnight.getTime() - Date.now());
+    };
+    refreshNowAndAtMidnight();
+    return () => clearTimeout(timer);
   }, []);
 
   const navigateFromCurrent = useCallback(
