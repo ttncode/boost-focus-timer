@@ -71,3 +71,9 @@ export function currentFrame(type: AnimationType, state: FrameState): number {
   if (type === "rocket" && state.isOnBreak && phaseOf(state) !== "running") return 1;
   return fillingFrame(state, frames);
 }
+
+/** How full the coffee cup is at `frame` (1 = full cup, `frames` = empty). */
+export const coffeeFill = (frame: number, frames: number): number => (frames - frame) / (frames - 1);
+
+/** A jump of more than one frame toward a fuller cup, e.g. extending or resetting, as opposed to the slow refill during a break. */
+export const isRefill = (from: number, to: number): boolean => from - to > 1;

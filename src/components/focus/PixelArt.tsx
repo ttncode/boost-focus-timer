@@ -1,5 +1,7 @@
-import { useEffect, type ReactNode } from "react";
-import { BATTERY_LEVELS, metaOf, type AnimationType } from "./animations";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BATTERY_LEVELS, coffeeFill, isRefill, metaOf, type AnimationType } from "./animations";
+import { playRefill } from "./coffeeRefill";
+import { playSound } from "./sounds";
 
 type Pixel = readonly [x: number, y: number, width: number, height: number, color: string];
 
@@ -123,6 +125,46 @@ function preloadCoffeeFrames(frames: number): void {
   for (let frame = 1; frame <= frames; frame++) new Image().src = coffeeFrameUrl(frame);
 }
 
+interface Refill {
+  readonly from: number;
+  readonly to: number;
+}
+
+const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Shows the coffee frame; when the cup jumps to a fuller level it fizzes up to it on a canvas over the empty cup. */
+function CoffeeCup({ frame, frames, className, label }: { frame: number; frames: number; className: string; label: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [lastFrame, setLastFrame] = useState(frame);
+  const [refill, setRefill] = useState<Refill | null>(null);
+  if (frame !== lastFrame) {
+    setLastFrame(frame);
+    if (isRefill(lastFrame, frame) && !prefersReducedMotion()) setRefill({ from: lastFrame, to: frame });
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!refill || !canvas) return;
+    playSound("refill");
+    return playRefill(canvas, {
+      from: coffeeFill(refill.from, frames),
+      to: coffeeFill(refill.to, frames),
+      fullSrc: coffeeFrameUrl(1),
+      emptySrc: coffeeFrameUrl(frames),
+      toSrc: coffeeFrameUrl(refill.to),
+      onDone: () => setRefill(null),
+    });
+  }, [refill, frames]);
+
+  return (
+    <div className={`${className} relative`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- frame-by-frame animation; next/image would re-optimize every frame */}
+      <img src={coffeeFrameUrl(refill ? frames : frame)} alt={label} className="absolute inset-0 size-full object-contain" draggable={false} />
+      {refill ? <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 size-full [image-rendering:pixelated]" /> : null}
+    </div>
+  );
+}
+
 /** Draws `frame` (1-based) of a pixel-art animation on a 32×32 grid. */
 export function PixelArt({ type, frame, className, label }: { type: AnimationType; frame: number; className: string; label: string }) {
   const { frames } = metaOf(type);
@@ -130,10 +172,7 @@ export function PixelArt({ type, frame, className, label }: { type: AnimationTyp
   useEffect(() => {
     if (type === "coffee-cup") preloadCoffeeFrames(frames);
   }, [type, frames]);
-  if (type === "coffee-cup") {
-    // eslint-disable-next-line @next/next/no-img-element -- frame-by-frame animation; next/image would re-optimize every frame
-    return <img src={coffeeFrameUrl(clamped)} alt={label} className={`${className} object-contain`} draggable={false} />;
-  }
+  if (type === "coffee-cup") return <CoffeeCup frame={clamped} frames={frames} className={className} label={label} />;
   const { pixels, flame: flamePixels } = scene(type, clamped - 1, frames);
   return (
     <svg viewBox={`0 0 ${GRID} ${GRID}`} shapeRendering="crispEdges" className={className} role="img" aria-label={label}>
