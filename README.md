@@ -55,7 +55,7 @@ Open <http://localhost:3000>. To serve an optimized build instead, run `npm run 
 
 Click the tray icon to bring it back. Closing the window (X) only hides it, so a running session and its notification carry on; to quit, right-click the tray icon → **Quit**. Turn off **Start with Windows** in the same menu if you don't want it at sign-in.
 
-The app checks for a new version when it starts and every 6 hours, and asks before installing, unless a session is running. To check now, right-click the tray icon → **Check for updates**.
+To update, right-click the tray icon → **Check for updates**. The app asks before installing, and does not install while a session is running.
 
 The desktop app starts with empty data; it cannot read what the browser extension or web app stored. To move or back up your data, use **Menu → Settings → Export data** and **Import data**.
 
