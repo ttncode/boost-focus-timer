@@ -22,7 +22,6 @@ const AUTOSTART_OFF_MARKER: &str = "autostart-off";
 const CLOSE_NOTICE_MARKER: &str = "close-notice-shown";
 const TRAY_ID: &str = "main";
 const END_POLL: Duration = Duration::from_secs(1);
-const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 const SESSION_RUNNING_MESSAGE: &str = "A session is running. Check again when it has finished.";
 // WebView2 writes localStorage to disk a few seconds late, and ending the app abruptly loses those writes.
 const STORAGE_COMMIT_WAIT: Duration = Duration::from_secs(6);
@@ -31,7 +30,6 @@ const STORAGE_COMMIT_WAIT: Duration = Duration::from_secs(6);
 struct AppState {
     scheduled_end: Mutex<Option<ScheduledEnd>>,
     update_check_busy: AtomicBool,
-    declined_update: Mutex<Option<String>>,
 }
 
 #[tauri::command]
@@ -144,35 +142,21 @@ fn install_update(app: &AppHandle, update: Update, bytes: Vec<u8>) {
 
 fn ask_to_install(app: &AppHandle, version: &str) -> bool {
     app.dialog()
-        .message(format!("Version {version} is available. Install it now? The app will close and reopen."))
+        .message(format!(
+            "{APP_NAME} {version} is available (you have {}).\n\nDownload and install it now? {APP_NAME} restarts by itself.",
+            app.package_info().version
+        ))
         .title(APP_NAME)
         .buttons(MessageDialogButtons::OkCancelCustom("Install and restart".to_string(), "Later".to_string()))
         .blocking_show()
 }
 
-fn was_declined(app: &AppHandle, version: &str) -> bool {
-    app.state::<AppState>().declined_update.lock().is_ok_and(|slot| slot.as_deref() == Some(version))
-}
-
-fn remember_declined(app: &AppHandle, version: &str) {
-    if let Ok(mut slot) = app.state::<AppState>().declined_update.lock() {
-        *slot = Some(version.to_string());
-    }
-}
-
-/// Automatic checks ask once per version per run, so "Later" is not repeated every few hours.
-async fn offer_update(app: &AppHandle, update: Update, from_tray: bool) {
+async fn offer_update(app: &AppHandle, update: Update) {
     if timer_running(app) {
-        if from_tray {
-            show_message(app, SESSION_RUNNING_MESSAGE.to_string());
-        }
-        return;
-    }
-    if !from_tray && was_declined(app, &update.version) {
+        show_message(app, SESSION_RUNNING_MESSAGE.to_string());
         return;
     }
     if !ask_to_install(app, &update.version) {
-        remember_declined(app, &update.version);
         return;
     }
     set_tray_tooltip(app, "Downloading update…");
@@ -184,38 +168,26 @@ async fn offer_update(app: &AppHandle, update: Update, from_tray: bool) {
     }
 }
 
-/// An automatic check that fails stays silent and is retried later; from the tray it says why.
-async fn run_update_check(app: &AppHandle, from_tray: bool) {
+async fn run_update_check(app: &AppHandle) {
     let result = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(error) => Err(error),
     };
     match result {
-        Ok(Some(update)) => offer_update(app, update, from_tray).await,
-        Ok(None) if from_tray => show_message(app, format!("{APP_NAME} {} is the latest version.", app.package_info().version)),
-        Err(error) if from_tray => show_message(app, format!("Couldn't check for updates: {error}")),
-        _ => {}
+        Ok(Some(update)) => offer_update(app, update).await,
+        Ok(None) => show_message(app, format!("{APP_NAME} {} is the latest version.", app.package_info().version)),
+        Err(error) => show_message(app, format!("Couldn't check for updates: {error}")),
     }
 }
 
-async fn check_for_update(app: AppHandle, from_tray: bool) {
+async fn check_for_update(app: AppHandle) {
     let state = app.state::<AppState>();
     if state.update_check_busy.swap(true, Ordering::SeqCst) {
-        if from_tray {
-            show_message(&app, "An update check is already running.".to_string());
-        }
+        show_message(&app, "An update check is already running.".to_string());
         return;
     }
-    run_update_check(&app, from_tray).await;
+    run_update_check(&app).await;
     state.update_check_busy.store(false, Ordering::SeqCst);
-}
-
-/// The app lives in the tray for weeks, so checking only at launch would leave it behind.
-fn start_update_checks(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        tauri::async_runtime::block_on(check_for_update(app.clone(), false));
-        std::thread::sleep(UPDATE_CHECK_EVERY);
-    });
 }
 
 fn app_marker(app: &AppHandle, name: &str) -> Option<PathBuf> {
@@ -303,7 +275,7 @@ fn build_tray(app: &AppHandle, autostart_on: bool) -> tauri::Result<()> {
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "open" => show_main(app),
             "check-updates" => {
-                tauri::async_runtime::spawn(check_for_update(app.clone(), true));
+                tauri::async_runtime::spawn(check_for_update(app.clone()));
             }
             "autostart" => set_autostart(app, autostart.is_checked().unwrap_or(false)),
             "quit" => quit(app),
@@ -371,7 +343,6 @@ pub fn run() {
             if !started_hidden {
                 show_main(&handle);
             }
-            start_update_checks(handle);
             Ok(())
         })
         .run(tauri::generate_context!())
