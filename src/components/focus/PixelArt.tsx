@@ -130,8 +130,6 @@ interface Refill {
   readonly to: number;
 }
 
-const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 /** Shows the coffee frame; when the cup jumps to a fuller level it fizzes up to it on a canvas over the empty cup. */
 function CoffeeCup({ frame, frames, className, label }: { frame: number; frames: number; className: string; label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -139,7 +137,8 @@ function CoffeeCup({ frame, frames, className, label }: { frame: number; frames:
   const [refill, setRefill] = useState<Refill | null>(null);
   if (frame !== lastFrame) {
     setLastFrame(frame);
-    if (isRefill(lastFrame, frame) && !prefersReducedMotion()) setRefill({ from: lastFrame, to: frame });
+    // Plays even with reduced motion on: the owner chose to always show this short refill.
+    if (isRefill(lastFrame, frame)) setRefill({ from: lastFrame, to: frame });
   }
 
   useEffect(() => {
