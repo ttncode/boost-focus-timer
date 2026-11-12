@@ -20,6 +20,7 @@ const MOMENTS: readonly { event: SoundEvent; label: string }[] = [
   { event: "pause", label: "Pause" },
   { event: "resume", label: "Resume" },
   { event: "tap", label: "Tap" },
+  { event: "refill", label: "Refill" },
 ];
 
 const ownSound = { [OWN_SOUND_ATTRIBUTE]: "" };

@@ -4,7 +4,7 @@
  * except where a theme deliberately stays quiet (null).
  */
 
-export type SoundEvent = "tap" | "focusStart" | "focusEnd" | "breakStart" | "breakEnd" | "pause" | "resume";
+export type SoundEvent = "tap" | "focusStart" | "focusEnd" | "breakStart" | "breakEnd" | "pause" | "resume" | "refill";
 
 interface Overtone {
   /** Frequency multiple of the note. */
@@ -25,10 +25,12 @@ interface Note {
   readonly volume: number;
   readonly wave?: OscillatorType;
   readonly attack?: number;
+  /** Frequency multiple reached by the end of the note; above 1 sweeps up like a popping bubble. */
+  readonly glide?: number;
   readonly overtones?: readonly Overtone[];
 }
 
-export type SoundThemeId = "classic" | "glass" | "wood" | "bowl" | "soft" | "silent";
+export type SoundThemeId = "classic" | "glass" | "wood" | "bowl" | "soft" | "aurora" | "silent";
 
 export interface SoundTheme {
   readonly id: SoundThemeId;
@@ -49,6 +51,11 @@ const BOWL: readonly Overtone[] = [
   { ratio: 2.76, volume: 0.35, length: 0.6 },
   { ratio: 5.4, volume: 0.12, length: 0.3 },
 ];
+// A fifth and an octave above, fading with the note, give a soft airy pad.
+const AIR: readonly Overtone[] = [
+  { ratio: 1.5, volume: 0.3, length: 1 },
+  { ratio: 2, volume: 0.2, length: 0.8 },
+];
 
 const note = (frequency: number, delay: number, duration: number, volume: number, extra: Partial<Note> = {}): Note => ({
   frequency,
@@ -62,7 +69,20 @@ const mallet = (frequency: number, delay: number, duration = 0.45, volume = 0.13
   note(frequency, delay, duration, volume, { wave: "triangle", overtones: MALLET });
 const strike = (frequency: number, delay: number, duration = 3.5, volume = 0.12) =>
   note(frequency, delay, duration, volume, { attack: 0.02, overtones: BOWL });
+const pad = (frequency: number, delay: number, duration = 1.6, volume = 0.05) =>
+  note(frequency, delay, duration, volume, { attack: 0.12, overtones: AIR });
 const blip = (frequency: number, delay: number, duration = 0.2, volume = 0.05) => note(frequency, delay, duration, volume);
+
+// Matches the coffee refill animation, which fills the cup in about 2.6 seconds.
+const REFILL_SECONDS = 2.5;
+/** `count` bubble pops spread over the refill, rising in pitch as the cup fills, then `finish` when it is full. */
+const fizz = (base: number, count: number, volume: number, extra: Partial<Note> = {}): Note[] =>
+  Array.from({ length: count }, (_, index) =>
+    note(base * (1 + ((index * 5) % 7) * 0.06) * (1 + (0.5 * index) / count), (REFILL_SECONDS * (index + ((index * 7) % 3) / 3)) / count, 0.08, volume, {
+      glide: 2,
+      ...extra,
+    }),
+  );
 
 const CLASSIC_CHIME = [note(659.25, 0, 0.35, 0.12), note(880, 0.12, 0.5, 0.12)];
 const CLASSIC_BELL = [
@@ -84,6 +104,7 @@ export const SOUND_THEMES: readonly SoundTheme[] = [
       breakEnd: CLASSIC_BELL,
       pause: null,
       resume: CLASSIC_CHIME,
+      refill: [...fizz(520, 14, 0.04), note(659.25, REFILL_SECONDS, 0.35, 0.1), note(880, REFILL_SECONDS + 0.12, 0.5, 0.1)],
     },
   },
   {
@@ -98,6 +119,7 @@ export const SOUND_THEMES: readonly SoundTheme[] = [
       breakEnd: [ping(987.77, 0, 0.9), ping(1318.51, 0.16, 1), ping(1760, 0.32, 1.4)],
       pause: [ping(987.77, 0, 0.35, 0.05)],
       resume: [ping(1318.51, 0, 0.35, 0.05)],
+      refill: [...fizz(1100, 16, 0.025), ping(1760, REFILL_SECONDS, 1.2)],
     },
   },
   {
@@ -112,6 +134,7 @@ export const SOUND_THEMES: readonly SoundTheme[] = [
       breakEnd: [mallet(523.25, 0), mallet(659.25, 0.08), mallet(783.99, 0.16), mallet(1046.5, 0.24, 0.7)],
       pause: [mallet(392, 0, 0.3, 0.07)],
       resume: [mallet(523.25, 0, 0.3, 0.07)],
+      refill: [...fizz(700, 12, 0.04, { wave: "triangle" }), mallet(783.99, REFILL_SECONDS, 0.6)],
     },
   },
   {
@@ -126,6 +149,7 @@ export const SOUND_THEMES: readonly SoundTheme[] = [
       breakEnd: [strike(220, 0, 2.5), strike(293.66, 0.9)],
       pause: null,
       resume: null,
+      refill: [...fizz(300, 8, 0.03), strike(261.63, REFILL_SECONDS, 3)],
     },
   },
   {
@@ -140,13 +164,29 @@ export const SOUND_THEMES: readonly SoundTheme[] = [
       breakEnd: [blip(523.25, 0), blip(659.25, 0.18), blip(880, 0.36)],
       pause: [blip(523.25, 0, 0.1, 0.03)],
       resume: [blip(659.25, 0, 0.1, 0.03)],
+      refill: [...fizz(600, 10, 0.02), blip(880, REFILL_SECONDS)],
+    },
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    description: "Airy chords that bloom slowly. Calm for long sessions; quiet for taps.",
+    sounds: {
+      tap: null,
+      focusStart: [pad(523.25, 0, 1.4), pad(659.25, 0.05, 1.4)],
+      focusEnd: [pad(523.25, 0, 2.6), pad(659.25, 0.2, 2.6), pad(783.99, 0.4, 2.6), pad(987.77, 0.6, 2.8, 0.035)],
+      breakStart: [pad(440, 0, 1.8), pad(554.37, 0.15, 1.8)],
+      breakEnd: [pad(587.33, 0, 1.6), pad(739.99, 0.15, 1.8), pad(880, 0.3, 2)],
+      pause: [pad(392, 0, 0.8, 0.035)],
+      resume: [pad(523.25, 0, 0.8, 0.035)],
+      refill: [...fizz(400, 10, 0.025), pad(659.25, REFILL_SECONDS - 0.3, 1.8, 0.04), pad(987.77, REFILL_SECONDS - 0.1, 1.8, 0.03)],
     },
   },
   {
     id: "silent",
     name: "Silent",
     description: "No sounds at all. Notifications still appear when they're on.",
-    sounds: { tap: null, focusStart: null, focusEnd: null, breakStart: null, breakEnd: null, pause: null, resume: null },
+    sounds: { tap: null, focusStart: null, focusEnd: null, breakStart: null, breakEnd: null, pause: null, resume: null, refill: null },
   },
 ];
 
@@ -185,7 +225,8 @@ function playTone(audio: AudioContext, tone: Note): void {
   const oscillator = audio.createOscillator();
   const gain = audio.createGain();
   oscillator.type = tone.wave ?? "sine";
-  oscillator.frequency.value = tone.frequency;
+  oscillator.frequency.setValueAtTime(tone.frequency, startAt);
+  if (tone.glide) oscillator.frequency.exponentialRampToValueAtTime(tone.frequency * tone.glide, startAt + tone.duration);
   gain.gain.setValueAtTime(SILENCE, startAt);
   gain.gain.exponentialRampToValueAtTime(tone.volume, startAt + (tone.attack ?? ATTACK_SECONDS));
   gain.gain.exponentialRampToValueAtTime(SILENCE, startAt + tone.duration);
